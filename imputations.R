@@ -5,12 +5,15 @@ library(skimr)
 
 set.seed(25335)
 
-train <- read_csv("insurance_t.csv")
+train_1 <- read_csv("insurance_t.csv")
+
+x <- createDataPartition(train_1$INS, p = 0.7, list = TRUE)$Resample1
+train <- train_1[x, ]
+test <- train_1[-x, ]
+
 
 colSums(is.na(train))
 
-x <- train %>% 
-  select(ACCTAGE ,INV, INVBAL, CC, CCBAL, CCPURC, INCOME, LORES, HMVAL, AGE, CRSCORE, POS, POSAMT)
 
 
 train %>% 
@@ -84,6 +87,6 @@ median(train$CRSCORE, na.rm = TRUE)
 
 train$CRSCORE[is.na(train$CRSCORE)] <- 666
 
-write_csv(train, "train_imputed")
-
+write_csv(train, "train_imputed.csv")
+write_csv(test, "test_nonimputed.csv")
 
