@@ -30,10 +30,17 @@ flag  = df %>%
 # then drop col if there are no missing values
 flag_sub = flag[39:ncol(flag)][colSums(abs(flag[39:ncol(flag)]), na.rm = TRUE) > 0]
 
+# then drop all cols that are not numerical (because we only want the flag for numerical variables)
+drop_flag = c('FLAG_NA_DDA','FLAG_NA_DIRDEP','FLAG_NA_NSF','FLAG_NA_SAV'
+              ,'FLAG_NA_ATM','FLAG_NA_CD','FLAG_NA_IRA','FLAG_NA_INV','FLAG_NA_MM','FLAG_NA_MMCRED',
+              'FLAG_NA_CC','FLAG_NA_CCPURC','FLAG_NA_SDB','FLAG_NA_INAREA','FLAG_NA_INS', 'FLAG_NA_BRANCH')
+drop_vars <- names(flag_sub) %in% drop_flag
+
+flag_sub_sub <- flag_sub[!drop_vars]
 
 # add flags back to original data frame
 
-df <- cbind(df, flag_sub)
+df <- cbind(df, flag_sub_sub)
 
 ###impute data ####################################################################################################################
 
@@ -59,4 +66,3 @@ colSums(is.na(df))
 # MARS
 
 # GAM
-
