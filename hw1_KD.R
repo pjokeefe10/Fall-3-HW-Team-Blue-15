@@ -14,6 +14,10 @@ library(gmodels)
 library(InformationValue)
 library(naniar)
 library(dplyr)
+library(caret)
+library(leaps)
+library(earth)
+library(mgcv)
 
 #### read in data #####
 train <- read.csv("C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 1/insurance_t.csv")
@@ -35,6 +39,26 @@ train %>% count(CC)
 
 train$CCPURC[is.na(train$CCPURC)] <- "M"
 train %>% count(CCPURC)
+
+########## impute mode ###########
+calc_mode <- function(x){
+  
+  # List the distinct / unique values
+  distinct_values <- unique(x)
+  
+  # Count the occurrence of each distinct value
+  distinct_tabulate <- tabulate(match(x, distinct_values))
+  
+  # Return the value with the highest occurrence
+  distinct_values[which.max(distinct_tabulate)]
+}
+
+train$INV <- if_else(is.na(train$INV), calc_mode(train$INV), train$INV)
+train$CC <- if_else(is.na(train$CC), calc_mode(train$CC), train$CC)
+train$CCPURC <- if_else(is.na(train$CCPURC), calc_mode(train$CCPURC), train$CCPURC)
+hist(train$INV)
+hist(train$CC)
+hist(train$CCPURC)
 
 ##### check each variable for separation problems #####
 # create list of predictor variable names
