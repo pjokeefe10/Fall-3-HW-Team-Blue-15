@@ -18,6 +18,7 @@ library(caret)
 library(leaps)
 library(earth)
 library(mgcv)
+library(ROCR)
 
 #### read in data #####
 train <- read.csv("C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 1/insurance_t.csv")
@@ -84,9 +85,6 @@ calc_mode <- function(x){
 train$INV <- if_else(is.na(train$INV), calc_mode(train$INV), train$INV)
 train$CC <- if_else(is.na(train$CC), calc_mode(train$CC), train$CC)
 train$CCPURC <- if_else(is.na(train$CCPURC), calc_mode(train$CCPURC), train$CCPURC)
-hist(train$INV)
-hist(train$CC)
-hist(train$CCPURC)
 
 # median for continuous var
 train <- train %>% 
@@ -111,16 +109,52 @@ train$MMCRED[which(train$MMCRED > 2)] <- "3+" # new category for 3+ money market
 table(train$INS, train$MMCRED)
 
 ##### MARS modeling #####
-# EARTH on all variables
-mars <- earth(INS ~ ., data = train, glm=list(family=binomial))
+# Earth function
+set.seed(444)
+mars <- earth(INS ~ ., data = train, glm=list(family=binomial), 
+              nfold = 10, pmethod=c("cv"), trace = 0.5)
 summary(mars)
 
 # Variable importance metric
-evimp(mars2)
+evimp(mars)
 
 # ROC Curve MARS
-train$p_hat <- predict(mars, type = "response")
-p1 <- train$p_hat[train$Bonus == 1]
-p0 <- train$p_hat[train$Bonus == 0] 
+train_p <- train
+train_p$p_hat <- predict(mars, type = "response")
+p1 <- train_p$p_hat[train_p$Bonus == 1]
+p0 <- train_p$p_hat[train_p$Bonus == 0] 
 
-InformationValue::plotROC(train$INS, train$p_hat)
+InformationValue::plotROC(train_p$INS, train_p$p_hat)
+
+# KS stat
+pred <- prediction(fitted(mars), factor(train$INS)) 
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+KS <- max(perf@y.values[[1]] - perf@x.values[[1]])
+cutoffAtKS <- unlist(perf@alpha.values)[which.max(perf@y.values[[1]] - perf@x.values[[1]])]
+print(c(KS, cutoffAtKS)) #KS Statistic
+
+plot(x = unlist(perf@alpha.values), y = (1-unlist(perf@y.values)),
+     type = "l", main = "K-S Plot (EDF)",
+     xlab = 'Cut-off',
+     ylab = "Proportion",
+     col = "red")
+lines(x = unlist(perf@alpha.values), y = (1-unlist(perf@x.values)), col = "blue")
+
+##### GAM modeling #####
+# all variables
+gam <- mgcv::gam(INS ~ s(ACCTAGE)	+ factor(DDA)	+ s(DDABAL) +	s(DEP) + 
+                   s(DEPAMT) +	s(CHECKS)	+ factor(DIRDEP) +	factor(NSF) +
+                   s(NSFAMT) +	s(PHONE) + s(TELLER)	+ factor(SAV) + 
+                   s(SAVBAL) + 	factor(ATM) + s(ATMAMT)	+ s(POS) +
+                   s(POSAMT) + 	factor(CD) + 	s(CDBAL) + 	factor(IRA) +
+                   s(IRABAL) + 	factor(INV)	+ s(INVBAL) + factor(MM) + 
+                   s(MMBAL)	+ factor(MMCRED) + 	factor(CC) + 	s(CCBAL) +
+                   factor(CCPURC) + factor(SDB) + s(INCOME) + s(LORES) +
+                   s(HMVAL) +	s(AGE) + s(CRSCORE) +	factor(INAREA) +
+                   factor(BRANCH) + factor(FLAG_NA_ACCTAGE) + 	factor(FLAG_NA_PHONE) +
+                   factor(FLAG_NA_POS) +	factor(FLAG_NA_POSAMT) + 	factor(FLAG_NA_INVBAL) +	factor(FLAG_NA_CCBAL) +
+                   factor(FLAG_NA_INCOME)	+ factor(FLAG_NA_LORES)	+ factor(FLAG_NA_HMVAL)	+ factor(FLAG_NA_AGE) + factor(FLAG_NA_CRSCORE)			
+                 , family = binomial, select = TRUE, data = train)
+summary(gam)
+
+# remaining variables after selection
