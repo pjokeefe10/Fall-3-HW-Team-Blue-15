@@ -20,6 +20,7 @@ train %>%
   count(INV)
 median(train$INVBAL, na.rm = TRUE)
 
+
 train$INV[is.na(train$INV)] <-  0
 
 train$INVBAL[is.na(train$INVBAL)] = 0
