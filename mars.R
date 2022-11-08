@@ -28,9 +28,9 @@ for ( i in seq_len( 14 ) ) {
 }
 
 #Check for separation concerns
-for ( i in c( 14 ) ) {
+for ( i in seq_len( 14 ) ) {
   print( col_names[ i ] )
-  print( table( train[[ i ]], train$INS ) )
+  print( table(train[[ i ]], train$INS) )
 } 
 
 
