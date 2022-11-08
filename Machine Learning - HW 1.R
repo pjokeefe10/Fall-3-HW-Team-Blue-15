@@ -4,6 +4,8 @@ library(caret)
 library(leaps)
 library(glmnet)
 library(dplyr)
+library(earth)
+library(InformationValue)
 
 df <-read.csv("C:\\Users\\Justin\\OneDrive - North Carolina State University\\Documents\\NC State\\IAA R\\Data\\insurance_t.csv")
 
@@ -64,5 +66,32 @@ colSums(is.na(df))
 # note: no need for variable selection
 
 # MARS
+mars <- earth(INS ~ ., data = df, glm = list(family=binomial))
+summary(mars)
+
+evimp(mars)
+
+# ROC Curve MARS
+df$p_hat <- predict(mars, type = "response")
+p1 <- df$p_hat[df$Bonus == 1]
+p0 <- df$p_hat[df$Bonus == 0] 
+
+
+InformationValue::plotROC(df$INS, df$p_hat)
 
 # GAM
+gam <- mgcv::gam(INS ~ s(ACCTAGE)	+ factor(DDA)	+ s(DDABAL) +	s(DEP) + 
+                 s(DEPAMT) +	s(CHECKS)	+ factor(DIRDEP) +	factor(NSF) +
+                 s(NSFAMT) +	s(PHONE) + s(TELLER)	+ factor(SAV) + 
+                 s(SAVBAL) + 	factor(ATM) + s(ATMAMT)	+ s(POS) +
+                 s(POSAMT) + 	factor(CD) + 	s(CDBAL) + 	factor(IRA) +
+                 s(IRABAL) + 	factor(INV)	+ s(INVBAL) + factor(MM) + 
+                 s(MMBAL)	+ factor(MMCRED) + 	factor(CC) + 	s(CCBAL) +
+                 factor(CCPURC) + factor(SDB) + s(INCOME) + s(LORES) +
+                 s(HMVAL) +	s(AGE) + s(CRSCORE) +	factor(INAREA) +
+                 factor(BRANCH) + factor(FLAG_NA_ACCTAGE) + 	factor(FLAG_NA_PHONE) +
+                 factor(FLAG_NA_POS) +	factor(FLAG_NA_POSAMT) + 	factor(FLAG_NA_INVBAL) +	factor(FLAG_NA_CCBAL) +
+                 factor(FLAG_NA_INCOME)	+ factor(FLAG_NA_LORES)	+ factor(FLAG_NA_HMVAL)	+ factor(FLAG_NA_AGE) + factor(FLAG_NA_CRSCORE)			
+                 , family = binomial, data = df)
+
+summary(gam)
