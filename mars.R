@@ -4,10 +4,11 @@ library(leaps)
 library(glmnet)
 library(earth)
 library(mgcv)
+library(ROCR)
+library(InformationValue)
 
 #Load in the train and test created in imputations.R
 train <- read_csv("train_imputed.csv")
-test <- read_csv("test_nonimputed.csv")
 
 #Check for missing values
 is.na(train) %>% colSums()
@@ -59,18 +60,38 @@ step <- train(x = subset(train, select = -INS),
               glm = list(family = binomial(link = "logit")))
 summary(step)
 
+train$phat <- predict(step, type = "prob")
+p1 <- train$phat$`1`
+p0 <- train$phat$`0`
+
+
+
 step2 <- train(x = subset(train, select = -INS),
               y = train$INS,
               method = "earth",
               tuneGrid = hyper_grid,
               trControl = trainControl(method = "cv", number = 10),
               glm = list(family = binomial(link = "logit")))
+
 summary(step2)
 
+
+
+train$phat <- predict(step2, type = "response")
+p1 <- df
+
+train_phat <- train
+train_phat$phat <- predict.train(step2, type = 'prob')
+plotROC(train_phat$INS, train_phat$phat$`1`)
 
 mars <- earth(INS ~ ., data = train, 
               glm = list(family = binomial(link = "logit")))
 summary(mars)
+
+train$phat <- predict(mars, type = "response")
+InformationValue::plotROC(train$INS, train$phat)
+
+
 
 plotd(mars)
 plot.earth.models(mars)
