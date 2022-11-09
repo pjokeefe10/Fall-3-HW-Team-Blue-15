@@ -172,7 +172,7 @@ summary(gam2)
 
 # ROC curve for GAM w/ selected variables
 train_p3 <- train
-train_p3$p_hat <- predict(gam, type = "response")
+train_p3$p_hat <- predict(gam2, type = "response")
 p1 <- train_p3$p_hat[train_p3$Bonus == 1]
 p0 <- train_p3$p_hat[train_p3$Bonus == 0] 
 
