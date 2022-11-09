@@ -29,20 +29,11 @@ train <- read.csv("C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 1/i
 # write.csv(var, "C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 1/var.csv")
 
 ##### check which variables have missing #####
-gg_miss_var(train) #HMOWN, INV, CCPURC, CC have missing values
+gg_miss_var(train) # 14 variables
+na_count <-sapply(train, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
 
-##### change missing value to missing category for categorical variables #####
-# train$INV[is.na(train$INV)] <- "M"
-# train %>% count(INV)
-# 
-# train$CC[is.na(train$CC)] <- "M"
-# train %>% count(CC)
-# 
-# train$CCPURC[is.na(train$CCPURC)] <- "M"
-# train %>% count(CCPURC)
-
-# coerce all binary and categorical to factor (16 cols)
-
+##### missing value imputation #####
 #convert all categorical var to factors
 col_names <- names(train)[c(2,7:8,12,14,18,20,22,24,26:27,29:30,36,38)]
 train[,col_names] <- lapply(train[,col_names] , factor)
@@ -53,10 +44,10 @@ flag  = train %>%
                 .names = 'FLAG_NA_{.col}'))
 
 
-# then drop col if there are no missing values
+# drop col if there are no missing values
 flag_sub = flag[39:ncol(flag)][colSums(abs(flag[39:ncol(flag)]), na.rm = TRUE) > 0]
 
-# then drop all cols that are not numerical (because we only want the flag for numerical variables)
+# drop all cols that are not numerical (because we only want the flag for numerical variables)
 drop_flag = c('FLAG_NA_DDA','FLAG_NA_DIRDEP','FLAG_NA_NSF','FLAG_NA_SAV'
               ,'FLAG_NA_ATM','FLAG_NA_CD','FLAG_NA_IRA','FLAG_NA_INV','FLAG_NA_MM','FLAG_NA_MMCRED',
               'FLAG_NA_CC','FLAG_NA_CCPURC','FLAG_NA_SDB','FLAG_NA_INAREA','FLAG_NA_INS', 'FLAG_NA_BRANCH')
@@ -68,17 +59,16 @@ flag_sub_sub <- flag_sub[!drop_vars]
 
 train <- cbind(train, flag_sub_sub)
 
-########## impute missing values ###########
 # mode for categorical var
 calc_mode <- function(x){
   
-  # List the distinct / unique values
+  # list the distinct / unique values
   distinct_values <- unique(x)
   
-  # Count the occurrence of each distinct value
+  # count the occurrence of each distinct value
   distinct_tabulate <- tabulate(match(x, distinct_values))
   
-  # Return the value with the highest occurrence
+  # return the value with the highest occurrence
   distinct_values[which.max(distinct_tabulate)]
 }
 
@@ -112,13 +102,13 @@ table(train$INS, train$MMCRED)
 # Earth function
 set.seed(444)
 mars <- earth(INS ~ ., data = train, glm=list(family=binomial), 
-              nfold = 10, pmethod=c("cv"), trace = 0.5)
+              nfold = 10, pmethod=c("cv"))
 summary(mars)
 
-# Variable importance metric
+# variable importance metric
 evimp(mars)
 
-# ROC Curve MARS
+# ROC Curve for MARS
 train_p <- train
 train_p$p_hat <- predict(mars, type = "response")
 p1 <- train_p$p_hat[train_p$Bonus == 1]
@@ -157,4 +147,33 @@ gam <- mgcv::gam(INS ~ s(ACCTAGE)	+ factor(DDA)	+ s(DDABAL) +	s(DEP) +
                  , family = binomial, select = TRUE, data = train)
 summary(gam)
 
+# ROC curve for GAM
+train_p2 <- train
+train_p2$p_hat <- predict(gam, type = "response")
+p1 <- train_p2$p_hat[train_p2$Bonus == 1]
+p0 <- train_p2$p_hat[train_p2$Bonus == 0] 
+
+InformationValue::plotROC(train_p2$INS, train_p2$p_hat)
+
 # remaining variables after selection
+gam2 <- mgcv::gam(INS ~ s(ACCTAGE)	+ factor(DDA)	+ s(DDABAL) +	s(DEP) + 
+                   s(DEPAMT) +	s(CHECKS)	+ factor(DIRDEP) +	factor(NSF) +
+                   s(PHONE) + s(TELLER)	+ factor(SAV) + 
+                   s(SAVBAL) + 	factor(ATM) + s(ATMAMT)	+ 
+                   factor(CD) + 	s(CDBAL) + 	factor(IRA) +
+                   s(IRABAL) + 	factor(INV) + factor(MM) + 
+                   s(MMBAL)	+ factor(MMCRED) + 	factor(CC) + 	s(CCBAL) +
+                   factor(CCPURC) + factor(SDB) + s(CRSCORE) +	factor(INAREA) +
+                   factor(BRANCH) + factor(FLAG_NA_ACCTAGE) + 	factor(FLAG_NA_PHONE) +
+                   factor(FLAG_NA_POS) +	factor(FLAG_NA_POSAMT) + 	factor(FLAG_NA_INVBAL) +	factor(FLAG_NA_CCBAL) +
+                   factor(FLAG_NA_INCOME)	+ factor(FLAG_NA_LORES)	+ factor(FLAG_NA_HMVAL)	+ factor(FLAG_NA_AGE) + factor(FLAG_NA_CRSCORE)			
+                 , family = binomial, data = train)
+summary(gam2)
+
+# ROC curve for GAM w/ selected variables
+train_p3 <- train
+train_p3$p_hat <- predict(gam, type = "response")
+p1 <- train_p3$p_hat[train_p3$Bonus == 1]
+p0 <- train_p3$p_hat[train_p3$Bonus == 0] 
+
+InformationValue::plotROC(train_p3$INS, train_p3$p_hat)
