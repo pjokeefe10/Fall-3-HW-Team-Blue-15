@@ -118,15 +118,34 @@ ggsurvplot(
 
 summary(reason.surv)
 #Hazard function
-reason.surv$n.event[2:46]/reason.surv$n.risk[2:46]
-reason.surv$n.event[47:70]/reason.surv$n.risk[47:70]
-reason.surv$n.event[71:98]/reason.surv$n.risk[71:98]
-reason.surv$n.event[99:119]/reason.surv$n.risk[99:119]
-reason.surv$time
+
 
 h = reason.surv$n.event[2:46]/reason.surv$n.risk[2:46]
 index.h=rep(0,length=(max(hurricane$hour)+1)) #Need to add 0
 index.h[(reason.surv$time[2:46])+1]=h #Because of 0
 haz.plot=data.frame(cbind(seq(0,max(hurricane$hour)), index.h,c(1)))
-colnames(haz.plot)=c("Time","Hazard", "reason")
-ggplot(haz.plot,aes(x=Time,y=Hazard))+geom_line()
+colnames(haz.plot)=c("Time","Hazard", "Reason")
+
+h = reason.surv$n.event[47:70]/reason.surv$n.risk[47:70]
+index.h=rep(0,length=(max(hurricane$hour)+1)) #Need to add 0
+index.h[(reason.surv$time[47:70])+1]=h #Because of 0
+haz.plot2=data.frame(cbind(seq(0,max(hurricane$hour)), index.h,c(2)))
+colnames(haz.plot2)=c("Time","Hazard", "Reason")
+
+h = reason.surv$n.event[71:98]/reason.surv$n.risk[71:98]
+index.h=rep(0,length=(max(hurricane$hour)+1)) #Need to add 0
+index.h[(reason.surv$time[71:98])+1]=h #Because of 0
+haz.plot3=data.frame(cbind(seq(0,max(hurricane$hour)), index.h,c(3)))
+colnames(haz.plot3)=c("Time","Hazard", "Reason")
+
+h = reason.surv$n.event[99:119]/reason.surv$n.risk[99:119]
+index.h=rep(0,length=(max(hurricane$hour)+1)) #Need to add 0
+index.h[(reason.surv$time[99:119])+1]=h #Because of 0
+haz.plot4=data.frame(cbind(seq(0,max(hurricane$hour)), index.h,c(4)))
+colnames(haz.plot4)=c("Time","Hazard", "Reason")
+
+strat.haz <- rbind(haz.plot,haz.plot2,haz.plot3,haz.plot4)
+
+strat.haz$Reason <- factor(strat.haz$Reason)
+
+ggplot(strat.haz,aes(x=Time,y=Hazard, color = Reason))+geom_line(size=1)
