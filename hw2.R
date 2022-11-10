@@ -20,9 +20,8 @@ library(gmodels)
 hurricane <- read.csv("https://raw.githubusercontent.com/sjsimmo2/Survival/master/hurricane.csv")
 
 ########## data processing ############
-hurricane$survive <- ifelse(hurricane$survive == 1, 0, 1)
 hurricane$flood <- ifelse(hurricane$reason == 1, 1, 0) # create target variable for flood failures
-hurricane <- hurricane[-c(9:56)] # drop h1-h48 variables 
+hurricane <- hurricane[-c(9:57,59:60)] # drop h1-h48, strata, and survive variables 
 
 ######### accelerated failure time model ############
 # log normal dist
@@ -117,9 +116,55 @@ hurr.aft.w5 <- survreg(Surv(hour, flood) ~ backup +
                        data = hurricane, dist = 'weibull') 
 summary(hurr.aft.w5)
 
-# final model has backup + servo + slope
+# final model (hurr.aft.w5) has backup + servo + slope
 
 ####### analyze pumps that failed due to flood failure #########
-flood <- hurricane %>% filter(flood == 1)
-flood <- flood[-c(9, 11:12)] # drop superfluous variables 
+#flood <- hurricane %>% filter(flood == 1)
+# flood.aft.w <- survreg(Surv(hour, flood) ~ ., 
+#                        data = flood, dist = 'weibull') 
+# summary(flood.aft.w)
 
+survprob.75.50.25 = predict(hurr.aft.w5, type = "quantile", se.fit = TRUE,p = c(0.25, 0.5, 0.75))
+floodpred <- (survprob.75.50.25$fit[317:431,]) #obs 317-431 are those w/ flood failure
+floodpred <- as.data.frame(floodpred)
+write.csv(floodpred, "C:/Users/kat4538/Documents/MSA/FALL 3/survival analysis/hw 2/predvalues.csv")
+
+####### impact of servo var ###########
+survprob.actual = 1 - psurvreg(hurricane$hour,
+                               mean = predict(hurr.aft.w5, type = "lp"),
+                               scale = hurr.aft.w5$scale, distribution = hurr.aft.w5$dist)
+new_time = qsurvreg(1 - survprob.actual,
+                    mean = predict(hurr.aft.w5, type = "lp") +
+                      coef(hurr.aft.w5)['servo'],
+                    scale = hurr.aft.w5$scale,
+                    distribution = hurr.aft.w5$dist)
+
+hurricane$new_time = new_time
+hurricane$diff = hurricane$new_time - hurricane$hour
+
+impact.servo=data.frame(hurricane$hour, hurricane$new_time, 
+                        hurricane$diff,hurricane$flood,hurricane$servo)
+colnames(impact.servo)=c("O.hour","N.hour","Diff","Flood","Servo")
+
+impact.servo2=subset(impact.servo,Flood==1 & Servo==0)
+head(impact.servo2)
+
+####### impact of backup var ###########
+survprob.actual2 = 1 - psurvreg(hurricane$hour,
+                               mean = predict(hurr.aft.w5, type = "lp"),
+                               scale = hurr.aft.w5$scale, distribution = hurr.aft.w5$dist)
+new_time2 = qsurvreg(1 - survprob.actual,
+                    mean = predict(hurr.aft.w5, type = "lp") +
+                      coef(hurr.aft.w5)['backup'],
+                    scale = hurr.aft.w5$scale,
+                    distribution = hurr.aft.w5$dist)
+
+hurricane$new_time2 = new_time2
+hurricane$diff2 = hurricane$new_time2 - hurricane$hour
+
+impact.backup=data.frame(hurricane$hour, hurricane$new_time2, 
+                        hurricane$diff2,hurricane$flood,hurricane$backup)
+colnames(impact.backup)=c("O.hour","N.hour","Diff","Flood","Backup")
+
+impact.backup2=subset(impact.backup,Flood==1 & Backup==0)
+head(impact.backup2)
