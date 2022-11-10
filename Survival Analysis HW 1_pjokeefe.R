@@ -30,6 +30,20 @@ hurricane_missing <- hurricane[rowSums(is.na(hurricane)) > 0,]
 
 hurricane$censor <- ifelse(hurricane$survive == 1, 0, 1)
 
+reason_0 <- hurricane[hurricane$reason == "0",]
+reason_1 <- hurricane[hurricane$reason == "1",]
+reason_2 <- hurricane[hurricane$reason == "2",]
+reason_3 <- hurricane[hurricane$reason == "3",]
+reason_4 <- hurricane[hurricane$reason == "4",]
+
+describe(hurricane$survive)
+describe(hurricane$reason)
+
+mean(reason_1$hour)
+mean(reason_2$hour)
+mean(reason_3$hour)
+mean(reason_4$hour)
+
 
 #Survival Analysis Object
 hurricane.surv = Surv(time=hurricane$hour,event=hurricane$censor)
@@ -69,7 +83,9 @@ ggsurvplot(reason.surv, data=hurricane, palette = c("blue","orange","red","purpl
 
 
 #Test differences
-survdiff(Surv(time=hour,event=censor)~reason, data = hurricane, rho = 0)
+logrank <- survdiff(Surv(time=hour,event=censor)~reason, data = hurricane, rho = 0)
+
+logrank
 
 survdiff(Surv(time=hour,event=censor)~reason, data = hurricane, rho = 1)
 
@@ -98,5 +114,19 @@ ggsurvplot(
   legend.labs =
     c("0", "1", "2", "3", "4"),    
   risk.table.height = 0.25, 
-  ggtheme = theme_bw()      
-)
+  ggtheme = theme_bw())
+
+summary(reason.surv)
+#Hazard function
+reason.surv$n.event[2:46]/reason.surv$n.risk[2:46]
+reason.surv$n.event[47:70]/reason.surv$n.risk[47:70]
+reason.surv$n.event[71:98]/reason.surv$n.risk[71:98]
+reason.surv$n.event[99:119]/reason.surv$n.risk[99:119]
+reason.surv$time
+
+h = reason.surv$n.event[2:46]/reason.surv$n.risk[2:46]
+index.h=rep(0,length=(max(hurricane$hour)+1)) #Need to add 0
+index.h[(reason.surv$time[2:46])+1]=h #Because of 0
+haz.plot=data.frame(cbind(seq(0,max(hurricane$hour)), index.h,c(1)))
+colnames(haz.plot)=c("Time","Hazard", "reason")
+ggplot(haz.plot,aes(x=Time,y=Hazard))+geom_line()
