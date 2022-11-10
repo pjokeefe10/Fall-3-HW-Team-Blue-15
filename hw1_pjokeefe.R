@@ -23,6 +23,8 @@ library(ROCR)
 #### read in data #####
 train <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main/insurance_t.csv")
 
+train$INS <- factor(train$INS)
+
 # DETERMINE TYPE OF VARIABLES
 # str(train)
 # var <- sapply(train, n_distinct) 
@@ -126,21 +128,23 @@ Concordance(train_p$INS, predict(mars, type = "response"))
 
 somersD(train_p$INS, predict(mars, type = "response"))
 
-train_p$p_hat <- predict(mars, type = "response")
+train_p$p_hat <- predict(mars, type = "response")[,1]
 
 p1 <- train_p$p_hat[train_p$INS == 1]
 p0 <- train_p$p_hat[train_p$INS == 0]
 
 coef_discrim <- mean(p1) - mean(p0)
 
-ggplot(train_p, aes(p_hat, fill = INS)) +
+ggplot(train_p, aes(p_hat, fill = factor(INS))) +
   geom_density(alpha = 0.7) +
   labs(x = "Predicted Probability",
        y = "Density",
        fill = "Outcome",
-       title = "Discrimination Slope") +
+       title = "Discrimination Slope",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
   scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
 
 #ROC curve
 pred.mars <- prediction(fitted(mars), factor(train_p$INS)) 
@@ -162,6 +166,12 @@ plot(x = unlist(perf.mars@alpha.values), y = (1-unlist(perf.mars@y.values)),
      ylab = "Proportion",
      col = "red")
 lines(x = unlist(perf.mars@alpha.values), y = (1-unlist(perf.mars@x.values)), col = "blue")
+
+
+train_p$prediction <- factor(ifelse(train_p$p_hat >= 0.3236774, 1, 0))
+
+confusionMatrix(train_p$prediction, train_p$INS)
+
 
 
 ##### GAM modeling #####
@@ -211,7 +221,7 @@ p0 <- gam2.p$p_hat[gam2.p$INS == 0]
 
 coef_discrim <- mean(p1) - mean(p0)
 
-ggplot(gam2.p, aes(p_hat, fill = INS)) +
+ggplot(gam2.p, aes(p_hat, fill = factor(INS))) +
   geom_density(alpha = 0.7) +
   labs(x = "Predicted Probability",
        y = "Density",
@@ -241,4 +251,10 @@ plot(x = unlist(perf.gam2@alpha.values), y = (1-unlist(perf.gam2@y.values)),
      col = "red")
 lines(x = unlist(perf.gam2@alpha.values), y = (1-unlist(perf.gam2@x.values)), col = "blue")
 
-## K-S Statistic of 0.3037318
+## K-S Statistic of 0.3236774
+
+
+gam2.p$prediction <- factor(ifelse(gam2.p$p_hat >= 0.3236774, 1, 0))
+
+confusionMatrix(gam2.p$prediction, gam2.p$INS)
+
