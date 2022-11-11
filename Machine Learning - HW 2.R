@@ -88,12 +88,30 @@ train$MMCRED[which(train$MMCRED > 2)] <- "3+" # new category for 3+ money market
 
 set.seed(1337)
 
-rf <- randomForest(factor(INS) ~ ., data = train, ntree = 200, importance = TRUE)
+rf <- randomForest(factor(INS) ~ ., data = train, ntree = 200, importance = TRUE, mtry = 6)
 plot(rf, main = "Number of Trees Compared to MSE")
 
 varImpPlot(rf, sort = TRUE, main = "Variable Importance")
 
 
+# tuning
+
+#set.seed(1337)
+#tuneRF(x = train[,-37], y = train[,37],
+#       plot = TRUE, ntreeTry = 500, stepFactor = 0.5)
+
+# variable selection
+train$random <- rnorm(nrow(train))
+set.seed(1337)
+
+rf2 <- randomForest(factor(INS) ~ ., data = train, ntree = 200, importance = TRUE, mtry = 6)
+varImpPlot(rf2,
+           sort = TRUE,
+           n.var = 15,
+           main = "Look for Variables Below Random Variable")
+
+# if we use accuracy, then no need to take out any vars
+# if we use gini, then left with SAVBAL, BRANCH, and DDABAL
 
 ############################# XGBoost Model ######################################################
 
@@ -105,6 +123,24 @@ train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way t
 set.seed(1337)
 xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, objective = "binary:logistic")
 
+xgb.importance(feature_names = colnames(train_x), model = xgb)
+
+xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
+
+# variable selection
+train$random <- rnorm(nrow(train))
+train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
+train_y <- as.numeric(train$INS) - 1 
+
+set.seed(1337)
+
+xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, objective = "binary:logistic")
+
+xgb.importance(feature_names = colnames(train_x), model = xgb)
+
+# just use SAVBAL and DDABAL?
+
+xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
 ################################## ROC Curves ############################################################
 ######################## Random Forest
