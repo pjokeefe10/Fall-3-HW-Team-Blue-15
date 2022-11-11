@@ -172,35 +172,10 @@ head(impact.backup2)
 mean(impact.backup2$Diff)
 
 
-####### impact of slope ###########
-survprob.actual3 = 1 - psurvreg(hurricane$hour,
-                                mean = predict(hurr.aft.w5, type = "lp"),
-                                scale = hurr.aft.w5$scale, distribution = hurr.aft.w5$dist)
-new_time3 = qsurvreg(1 - survprob.actual,
-                     mean = predict(hurr.aft.w5, type = "lp") -
-                       coef(hurr.aft.w5)['slope'],
-                     scale = hurr.aft.w5$scale,
-                     distribution = hurr.aft.w5$dist)
-
-hurricane$new_time3 = new_time3
-hurricane$diff3 = (hurricane$new_time3 - hurricane$hour)*5
-hurricane$diff4 = (hurricane$new_time3 - hurricane$hour)*10
-
-impact.slope=data.frame(hurricane$hour, hurricane$new_time3, 
-                         hurricane$diff3,hurricane$diff4,hurricane$flood,hurricane$slope)
-colnames(impact.slope)=c("O.hour","N.hour","Diff for 50k","Diff for 100k","Flood","slope")
-
-impact.slope=subset(impact.slope,Flood==1)
-head(impact.slope)
-mean(impact.slope$`Diff for 50k`)
-mean(impact.slope$`Diff for 100k`)
-
 
 upgrade_impact<- rbind(mean(impact.servo2$Diff),
-      mean(impact.backup2$Diff),
-      mean(impact.slope$`Diff for 50k`),
-      mean(impact.slope$`Diff for 100k`))
-Reason <- c("Servo", "Backup", "Slope Change by 5", "Slope Change by 10")
+      mean(impact.backup2$Diff))
+Reason <- c("Servo", "Backup")
 
 Impact <- data.frame(Reason, upgrade_impact)
 
