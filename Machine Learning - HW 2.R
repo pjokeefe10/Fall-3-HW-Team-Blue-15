@@ -93,3 +93,11 @@ varImpPlot(rf, sort = TRUE, main = "Variable Importance")
 
 
 # XGBoost
+
+
+
+train_x <- model.matrix(INS ~ ., data = train)[, -1]
+train_y <- train$INS
+
+set.seed(1337)
+xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100)
