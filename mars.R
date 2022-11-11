@@ -74,7 +74,7 @@ step2 <- train(x = subset(train, select = -INS),
               glm = list(family = binomial(link = "logit")))
 
 summary(step2)
-
+step2$finalModel
 
 
 train$phat <- predict(step2, type = "response")
