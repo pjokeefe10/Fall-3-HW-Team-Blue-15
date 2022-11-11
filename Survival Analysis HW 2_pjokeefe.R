@@ -127,7 +127,7 @@ summary(hurr.aft.w5)
 survprob.75.50.25 = predict(hurr.aft.w5, type = "quantile", se.fit = TRUE,p = c(0.25, 0.5, 0.75))
 floodpred <- (survprob.75.50.25$fit[317:431,]) #obs 317-431 are those w/ flood failure
 floodpred <- as.data.frame(floodpred)
-write.csv(floodpred, "C:/Users/kat4538/Documents/MSA/FALL 3/survival analysis/hw 2/predvalues.csv")
+#write.csv(floodpred, "C:/Users/kat4538/Documents/MSA/FALL 3/survival analysis/hw 2/predvalues.csv")
 
 ####### impact of servo var ###########
 survprob.actual = 1 - psurvreg(hurricane$hour,
@@ -200,5 +200,10 @@ upgrade_impact<- rbind(mean(impact.servo2$Diff),
       mean(impact.backup2$Diff),
       mean(impact.slope$`Diff for 50k`),
       mean(impact.slope$`Diff for 100k`))
+Reason <- c("Servo", "Backup", "Slope Change by 5", "Slope Change by 10")
 
-colnames(upgrade_impact) <- "Average Impact of Upgrade"
+Impact <- data.frame(Reason, upgrade_impact)
+
+colnames(Impact) <- c("Change", "Average Impact of Upgrade (in days)")
+
+
