@@ -19,6 +19,9 @@ library(leaps)
 library(earth)
 library(mgcv)
 library(ROCR)
+library(randomForest)
+library(xgboost)
+library(pROC)
 
 # read in data
 train <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main/insurance_t.csv")
@@ -94,10 +97,58 @@ varImpPlot(rf, sort = TRUE, main = "Variable Importance")
 
 # XGBoost
 
+# seperate training into x and y 
 
-
-train_x <- model.matrix(INS ~ ., data = train)[, -1]
+train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
 train_y <- train$INS
 
 set.seed(1337)
 xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100)
+
+
+# ROC Curves
+
+
+######################## Random Forest
+##Accuracy metrics
+train_p <- train
+
+#Concordance and discordance
+
+train_p$p_hat <- predict(rf, type = "prob")[,2]
+
+p1 <- train_p$p_hat[train_p$INS == 1]
+p0 <- train_p$p_hat[train_p$INS == 0]
+
+coef_discrim <- mean(p1) - mean(p0)
+
+ggplot(train_p, aes(p_hat, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for Random Forest",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
+
+#ROC curve
+pred.rf <- prediction(train_p$p_hat, factor(train_p$INS)) 
+perf.rf <- performance(pred.rf, measure = "tpr", x.measure = "fpr")
+plot(perf.rf, lwd = 3, col = "dodgerblue3", main = paste0("Random Forest ROC Plot (AUC = ", round(AUROC(train_p$INS, train_p$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+
+####################### XGBoost
+y_pred <- predict(xgb, train_x)
+
+#ROC curve
+pred.xgb <- prediction(y_pred, factor(train_p$INS)) 
+perf.xgb <- performance(pred.xgb, measure = "tpr", x.measure = "fpr")
+plot(perf.xgb, lwd = 3, col = "dodgerblue3", main = paste0("XGBoost ROC Plot (AUC = ", round(AUROC(train_p$INS, y_pred), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
