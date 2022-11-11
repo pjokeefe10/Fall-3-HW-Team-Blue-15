@@ -84,31 +84,29 @@ train <- train %>%
 train$MMCRED <- as.character(train$MMCRED)
 train$MMCRED[which(train$MMCRED > 2)] <- "3+" # new category for 3+ money market credits
 
-# random forest 
+############################## random forest #########################################################
 
 set.seed(1337)
 
-rf <- randomForest(INS ~ ., data = train, ntree = 200, importance = TRUE)
+rf <- randomForest(factor(INS) ~ ., data = train, ntree = 200, importance = TRUE)
 plot(rf, main = "Number of Trees Compared to MSE")
 
 varImpPlot(rf, sort = TRUE, main = "Variable Importance")
 
 
 
-# XGBoost
+############################# XGBoost Model ######################################################
 
-# seperate training into x and y 
+# separate training into x and y 
 
 train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
-train_y <- train$INS
+train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way too long to figure out. 
 
 set.seed(1337)
-xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100)
+xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, objective = "binary:logistic")
 
 
-# ROC Curves
-
-
+################################## ROC Curves ############################################################
 ######################## Random Forest
 ##Accuracy metrics
 train_p <- train
