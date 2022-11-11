@@ -140,7 +140,7 @@ ggplot(train_p, aes(p_hat, fill = factor(INS))) +
   labs(x = "Predicted Probability",
        y = "Density",
        fill = "Outcome",
-       title = "Discrimination Slope",
+       title = "Discrimination Slope for MARS Model",
        subtitle = paste("Coefficient of Discrimination = ",
                         round(coef_discrim, 3), sep = "")) +
   scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
@@ -149,7 +149,7 @@ ggplot(train_p, aes(p_hat, fill = factor(INS))) +
 #ROC curve
 pred.mars <- prediction(fitted(mars), factor(train_p$INS)) 
 perf.mars <- performance(pred.mars, measure = "tpr", x.measure = "fpr")
-plot(perf.mars, lwd = 3, col = "dodgerblue3", main = paste0("ROC Plot (AUC = ", round(AUROC(train_p$INS, train_p$p_hat), 3),")"), 
+plot(perf.mars, lwd = 3, col = "dodgerblue3", main = paste0("MARS ROC Plot (AUC = ", round(AUROC(train_p$INS, train_p$p_hat), 3),")"), 
      xlab = "True Positive",
      ylab = "False Positive")
 abline(a = 0, b = 1, lty = 3)
@@ -161,7 +161,7 @@ cutoffAtKS <- unlist(perf.mars@alpha.values)[which.max(perf.mars@y.values[[1]] -
 print(c(KS, cutoffAtKS)) #KS Statistic
 
 plot(x = unlist(perf.mars@alpha.values), y = (1-unlist(perf.mars@y.values)),
-     type = "l", main = "K-S Plot (EDF)",
+     type = "l", main = "MARS K-S Plot (EDF)",
      xlab = 'Cut-off',
      ylab = "Proportion",
      col = "red")
@@ -193,15 +193,15 @@ summary(gam)
 
 # remaining variables after selection
 gam2 <- mgcv::gam(INS ~ s(ACCTAGE)	+ factor(DDA)	+ s(DDABAL) +	s(DEP) + 
-                   s(DEPAMT) +	s(CHECKS)	+ factor(DIRDEP) +	factor(NSF) + s(PHONE) + s(TELLER)	+ factor(SAV) + 
-                   s(SAVBAL) + 	factor(ATM) + s(ATMAMT)	+ factor(CD) + 	s(CDBAL) + 	factor(IRA) +
-                   s(IRABAL) + 	factor(INV) + factor(MM) + 
-                   s(MMBAL)	+ factor(MMCRED) + 	factor(CC) + 	s(CCBAL) +
-                   factor(CCPURC) + factor(SDB) + s(CRSCORE) +	factor(INAREA) +
-                   factor(BRANCH) + factor(FLAG_NA_ACCTAGE) + 	factor(FLAG_NA_PHONE) +
-                   factor(FLAG_NA_POS) +	factor(FLAG_NA_POSAMT) + 	factor(FLAG_NA_INVBAL) +	factor(FLAG_NA_CCBAL) +
-                   factor(FLAG_NA_INCOME)	+ factor(FLAG_NA_LORES)	+ factor(FLAG_NA_HMVAL)	+ factor(FLAG_NA_AGE) + factor(FLAG_NA_CRSCORE)			
-                 , family = binomial, select = TRUE, data = train)
+                    s(DEPAMT) +	s(CHECKS)	+ factor(DIRDEP) +	factor(NSF) + s(PHONE) + s(TELLER)	+ factor(SAV) + 
+                    s(SAVBAL) + 	factor(ATM) + s(ATMAMT)	+ factor(CD) + 	s(CDBAL) + 	factor(IRA) +
+                    s(IRABAL) + 	factor(INV) + factor(MM) + 
+                    s(MMBAL)	+ factor(MMCRED) + 	factor(CC) + 	s(CCBAL) +
+                    factor(CCPURC) + factor(SDB) + s(CRSCORE) +	factor(INAREA) +
+                    factor(BRANCH) + factor(FLAG_NA_ACCTAGE) + 	factor(FLAG_NA_PHONE) +
+                    factor(FLAG_NA_POS) +	factor(FLAG_NA_POSAMT) + 	factor(FLAG_NA_INVBAL) +	factor(FLAG_NA_CCBAL) +
+                    factor(FLAG_NA_INCOME)	+ factor(FLAG_NA_LORES)	+ factor(FLAG_NA_HMVAL)	+ factor(FLAG_NA_AGE) + factor(FLAG_NA_CRSCORE)			
+                  , family = binomial, select = TRUE, data = train)
 summary(gam2)
 
 
@@ -226,9 +226,10 @@ ggplot(gam2.p, aes(p_hat, fill = factor(INS))) +
   labs(x = "Predicted Probability",
        y = "Density",
        fill = "Outcome",
-       title = "Discrimination Slope") +
+       title = "Discrimination Slope for GAM", 
+       subtitle = paste("Coefficient of Discrimination = ", round(coef_discrim, 3), sep = "")) +
   scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
 
 #ROC curve
 pred.gam2 <- prediction(fitted(gam2), factor(gam2.p$INS)) 
@@ -245,7 +246,7 @@ cutoffAtKS <- unlist(perf.gam2@alpha.values)[which.max(perf.gam2@y.values[[1]] -
 print(c(KS, cutoffAtKS)) #KS Statistic
 
 plot(x = unlist(perf.gam2@alpha.values), y = (1-unlist(perf.gam2@y.values)),
-     type = "l", main = "K-S Plot (EDF)",
+     type = "l", main = "GAM K-S Plot (EDF)",
      xlab = 'Cut-off',
      ylab = "Proportion",
      col = "red")
