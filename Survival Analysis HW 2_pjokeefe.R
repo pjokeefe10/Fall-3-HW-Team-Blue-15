@@ -23,6 +23,8 @@ hurricane <- read.csv("https://raw.githubusercontent.com/sjsimmo2/Survival/maste
 hurricane$flood <- ifelse(hurricane$reason == 1, 1, 0) # create target variable for flood failures
 hurricane <- hurricane[-c(9:57,59:60)] # drop h1-h48, strata, and survive variables 
 
+describe(factor(hurricane$flood))
+
 ######### accelerated failure time model ############
 # log normal dist
 hurr.aft.ln <- survreg(Surv(hour, flood) ~ backup + age + bridgecrane
@@ -63,6 +65,13 @@ hurr.g <- flexsurvreg(Surv(hour, flood) ~ backup + age + bridgecrane
                       data = hurricane, dist = 'gamma')
 plot(hurr.g, type = "cumhaz", ci = TRUE, conf.int = FALSE, las = 1, bty = "n",
      xlab = "Hour", ylab = "Cumulative Hazard", main = "Gamma Distribution")
+
+# log normal
+hurr.g <- flexsurvreg(Surv(hour, flood) ~ backup + age + bridgecrane
+                      + servo + gear + trashrack + slope + elevation, 
+                      data = hurricane, dist = 'lognormal')
+plot(hurr.g, type = "cumhaz", ci = TRUE, conf.int = FALSE, las = 1, bty = "n",
+     xlab = "Hour", ylab = "Cumulative Hazard", main = "log normal Distribution")
 
 ####### goodness-of-fit tests ########
 like.e <- flexsurvreg(Surv(hour, flood) ~ backup + age + bridgecrane
