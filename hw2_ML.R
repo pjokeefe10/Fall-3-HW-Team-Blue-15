@@ -134,7 +134,7 @@ varImpPlot(rf,
 importance(rf, type = 1)
 
 # Include a random variable to determine variable selection
-train$random <- rnorm(2051)
+train$random <- rnorm(8495)
 
 set.seed(444)
 rf <- randomForest(INS ~ ., data = train, 
@@ -144,13 +144,37 @@ varImpPlot(rf,
            sort = TRUE,
            n.var = 20,
            main = "Look for Variables Below Random Variable")
+rfimp <- importance(rf)
+rfimp <- as.data.frame(rfimp)
+
+write.csv(rfimp, "C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 2/rfimp.csv")
+
+# variable selection w/ accuracy
+set.seed(444)
+rf <- randomForest(INS ~ . - FLAG_NA_HMVAL - LORES - NSF - FLAG_NA_CRSCORE - 
+                   FLAG_NA_ACCTAGE - SDB - NSFAMT - FLAG_NA_LORES - INAREA, 
+                   data = train, ntree = 500, mtry = 8, importance = TRUE)
+
+varImpPlot(rf,
+           sort = TRUE,
+           n.var = 10)
 importance(rf)
 
-# ROC Curve
+# variable selection w/ gini
+set.seed(444)
+rf <- randomForest(INS ~ SAVBAL + DDABAL + BRANCH, data = train, 
+                   ntree = 500, importance = TRUE)
+
+varImpPlot(rf,
+           sort = TRUE,
+           n.var = 3)
+importance(rf)
+
+# ROC Curve - not working for me
 train_p <- train
-train_p$p_hat <- predict(rf, type = "response")
+train_p$p_hat <- as.numeric(predict(rf, type = "response"))
 p1 <- train_p$p_hat[train_p$INS == 1]
-p0 <- train_p$p_hat[train_p$INS == 0] 
+p0 <- train_p$p_hat[train_p$INS == 0]
 
 InformationValue::plotROC(train_p$INS, train_p$p_hat)
 
@@ -195,31 +219,51 @@ plot(xgb.caret)
 # Variable importance
 xgb <- xgboost(data = train_x, label = train_y, 
                subsample = 1, nrounds = 11, eta = 0.25, 
-               max_depth = 5, objective = "binary:logistic", eval_metric = "auc")
+               max_depth = 5, objective = "binary:logistic", 
+               eval_metric = "auc")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 
 xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
 # Include a random variable to determine variable selection
-train$random <- rnorm(2051)
+train$random <- rnorm(8495)
 
 train_x <- model.matrix(INS ~ ., data = train)[, -1]
-train_y <- train$INS
+train_y <- as.numeric(train$INS)-1
 
 set.seed(444)
 xgb <- xgboost(data = train_x, label = train_y, 
                subsample = 1, nrounds = 11, eta = 0.25, 
-               max_depth = 5, objective = "binary:logistic", eval_metric = "auc")
+               max_depth = 5, objective = "binary:logistic", 
+               eval_metric = "auc")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 
 xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
-# ROC curve
-train_p2 <- train
-train_p2$p_hat <- predict(xgb, type = "response")
-p1 <- train_p2$p_hat[train_p2$INS == 1]
-p0 <- train_p2$p_hat[train_p2$INS == 0] 
+# variable selection
+train_x <- model.matrix(INS ~ SAVBAL + DDABAL + CDBAL + 
+                          DDA + MM + MMBAL, data = train)[, -1]
+train_y <- as.numeric(train$INS)-1
 
-InformationValue::plotROC(train_p2$INS, train_p2$p_hat)
+set.seed(444)
+xgb <- xgboost(data = train_x, label = train_y, 
+               subsample = 1, nrounds = 11, eta = 0.25, 
+               max_depth = 5, objective = "binary:logistic", 
+               eval_metric = "auc")
+
+xgb.importance(feature_names = colnames(train_x), model = xgb)
+xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
+
+# ROC curve
+xgbcv <- xgb.cv(data = train_x, label = train_y, 
+                subsample = 1, nrounds = 11, 
+                nfold = 10, objective = "binary:logistic", 
+                eval_metric = "auc", prediction = T)
+
+library(pROC)
+plot(pROC::roc(response = train_y,
+               predictor = xgbcv$pred,
+               levels=c(0, 1)),
+     lwd=1.5) 
