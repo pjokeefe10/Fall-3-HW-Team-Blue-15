@@ -121,7 +121,7 @@ train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
 train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way too long to figure out. 
 
 set.seed(1337)
-xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, objective = "binary:logistic")
+xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, metric_name = "auc", objective = "binary:logistic")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 
@@ -134,11 +134,11 @@ train_y <- as.numeric(train$INS) - 1
 
 set.seed(1337)
 
-xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, objective = "binary:logistic")
+xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100,  metric_name = "auc", objective = "binary:logistic")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 
-# just use SAVBAL and DDABAL?
+# just use SAVBAL and DDABAL? may not do var selection
 
 xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
