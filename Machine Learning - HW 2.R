@@ -26,7 +26,7 @@ library(pROC)
 # read in data
 train <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main/insurance_t.csv")
 
-# imputation from phase 1
+########################################## imputation from phase 1 ###############################################################
 
 train$INS <- factor(train$INS)
 
@@ -176,7 +176,7 @@ plot(perf.rf, lwd = 3, col = "dodgerblue3", main = paste0("Random Forest ROC Plo
 abline(a = 0, b = 1, lty = 3)
 
 
-####################### XGBoost
+####################### XGBoost ###############################################################################################
 y_pred <- predict(xgb, train_x)
 
 #ROC curve
