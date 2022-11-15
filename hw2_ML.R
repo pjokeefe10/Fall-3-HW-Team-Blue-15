@@ -24,6 +24,7 @@ library(mlbench)
 library(xgboost)
 library(Ckmeans.1d.dp)
 library(pdp)
+library(pROC)
 
 #### read in data #####
 train <- read.csv("C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 2/insurance_t.csv")
@@ -124,7 +125,7 @@ tuneRF(x = train[,-1], y = train[,1],
        plot = TRUE, ntreeTry = 500, stepFactor = 0.5)
 
 set.seed(444)
-rf <- randomForest(INS ~ ., data = train, ntree = 500,
+rf <- randomForest(INS ~ ., data = train, ntree = 200,
                          mtry = 8, importance = TRUE)
 
 varImpPlot(rf,
@@ -138,7 +139,7 @@ train$random <- rnorm(8495)
 
 set.seed(444)
 rf <- randomForest(INS ~ ., data = train, 
-                   ntree = 500, mtry = 8, importance = TRUE)
+                   ntree = 200, mtry = 8, importance = TRUE)
 
 varImpPlot(rf,
            sort = TRUE,
@@ -146,37 +147,67 @@ varImpPlot(rf,
            main = "Look for Variables Below Random Variable")
 rfimp <- importance(rf)
 rfimp <- as.data.frame(rfimp)
-
 write.csv(rfimp, "C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 2/rfimp.csv")
 
 # variable selection w/ accuracy
 set.seed(444)
-rf <- randomForest(INS ~ . - FLAG_NA_HMVAL - LORES - NSF - FLAG_NA_CRSCORE - 
-                   FLAG_NA_ACCTAGE - SDB - NSFAMT - FLAG_NA_LORES - INAREA, 
-                   data = train, ntree = 500, mtry = 8, importance = TRUE)
+rf <- randomForest(INS ~ . - LORES - FLAG_NA_CRSCORE - FLAG_NA_INCOME
+                   - FLAG_NA_ACCTAGE - SDB - NSFAMT - INAREA, 
+                   data = train, ntree = 200, mtry = 8, importance = TRUE)
+
+# rf <- randomForest(INS ~ . - FLAG_NA_HMVAL - LORES - NSF - FLAG_NA_CRSCORE - 
+#                      FLAG_NA_ACCTAGE - SDB - NSFAMT - FLAG_NA_LORES - INAREA, 
+#                    data = train, ntree = 200, mtry = 8, importance = TRUE)
 
 varImpPlot(rf,
            sort = TRUE,
            n.var = 10)
-importance(rf)
+rfimp2 <- importance(rf)
+rfimp2 <- as.data.frame(rfimp2)
+write.csv(rfimp2, "C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 2/rfimp2.csv")
+
+# rf <- randomForest(INS ~ . - LORES - FLAG_NA_CRSCORE - FLAG_NA_INCOME
+#                    - FLAG_NA_ACCTAGE - SDB - NSFAMT - INAREA - DIRDEP
+#                    - FLAG_NA_LORES - CRSCORE - FLAG_NA_HMVAL - NSF, 
+#                    data = train, ntree = 200, mtry = 8, importance = TRUE)
 
 # variable selection w/ gini
 set.seed(444)
 rf <- randomForest(INS ~ SAVBAL + DDABAL + BRANCH, data = train, 
-                   ntree = 500, importance = TRUE)
+                   ntree = 200, importance = TRUE)
 
 varImpPlot(rf,
            sort = TRUE,
            n.var = 3)
 importance(rf)
 
-# ROC Curve - not working for me
+# ROC Curve
 train_p <- train
-train_p$p_hat <- as.numeric(predict(rf, type = "response"))
+train_p$p_hat <- predict(rf, type = "prob")[,2]
+
 p1 <- train_p$p_hat[train_p$INS == 1]
 p0 <- train_p$p_hat[train_p$INS == 0]
 
-InformationValue::plotROC(train_p$INS, train_p$p_hat)
+#ROC curve
+pred.rf <- prediction(train_p$p_hat, factor(train_p$INS)) 
+perf.rf <- performance(pred.rf, measure = "tpr", x.measure = "fpr")
+plot(perf.rf, lwd = 3, col = "dodgerblue3", main = paste0("Random Forest ROC Plot (AUC = ", round(AUROC(train_p$INS, train_p$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+# coefficient of discrimination
+coef_discrim <- mean(p1) - mean(p0)
+ggplot(train_p, aes(p_hat, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for Random Forest",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
 
 ##### XGBOOST #####
 # Prepare data for XGBoost function - similar to what we did for glmnet
@@ -193,7 +224,8 @@ xgb <- xgboost(data = train_x, label = train_y,
 # Tuning an XGBoost nrounds parameter - 11 iterations had the greatest auroc!
 xgbcv <- xgb.cv(data = train_x, label = train_y, 
                 subsample = 0.5, nrounds = 100, 
-                nfold = 10, objective = "binary:logistic", eval_metric = "auc")
+                nfold = 10, objective = "binary:logistic", 
+                eval_metric = "auc")
 tune <- xgbcv$evaluation_log
 
 # Tuning through caret
@@ -211,15 +243,14 @@ set.seed(444)
 xgb.caret <- train(x = train_x, y = train_y,
                         method = "xgbTree", eval_metric = "auc",
                         tuneGrid = tune_grid, objective = "binary:logistic",
-                        trControl = trainControl(method = 'cv', # Using 10-fold cross-validation
-                                                 number = 10))
+                        trControl = trainControl(method = 'cv', number = 10))
 
 plot(xgb.caret)
 
 # Variable importance
 xgb <- xgboost(data = train_x, label = train_y, 
-               subsample = 1, nrounds = 11, eta = 0.25, 
-               max_depth = 5, objective = "binary:logistic", 
+               subsample = 1, nrounds = 11, eta = 0.50, 
+               max_depth = 4, objective = "binary:logistic", 
                eval_metric = "auc")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
@@ -229,13 +260,10 @@ xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = 
 # Include a random variable to determine variable selection
 train$random <- rnorm(8495)
 
-train_x <- model.matrix(INS ~ ., data = train)[, -1]
-train_y <- as.numeric(train$INS)-1
-
 set.seed(444)
 xgb <- xgboost(data = train_x, label = train_y, 
-               subsample = 1, nrounds = 11, eta = 0.25, 
-               max_depth = 5, objective = "binary:logistic", 
+               subsample = 1, nrounds = 11, eta = 0.50, 
+               max_depth = 4, objective = "binary:logistic", 
                eval_metric = "auc")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
@@ -244,26 +272,25 @@ xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = 
 
 # variable selection
 train_x <- model.matrix(INS ~ SAVBAL + DDABAL + CDBAL + 
-                          DDA + MM + MMBAL, data = train)[, -1]
+                          DDA + MM, data = train)[, -1]
 train_y <- as.numeric(train$INS)-1
 
 set.seed(444)
 xgb <- xgboost(data = train_x, label = train_y, 
-               subsample = 1, nrounds = 11, eta = 0.25, 
-               max_depth = 5, objective = "binary:logistic", 
+               subsample = 1, nrounds = 11, eta = 0.50, 
+               max_depth = 4, objective = "binary:logistic", 
                eval_metric = "auc")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
 # ROC curve
-xgbcv <- xgb.cv(data = train_x, label = train_y, 
-                subsample = 1, nrounds = 11, 
-                nfold = 10, objective = "binary:logistic", 
-                eval_metric = "auc", prediction = T)
+y_pred <- predict(xgb, train_x)
 
-library(pROC)
-plot(pROC::roc(response = train_y,
-               predictor = xgbcv$pred,
-               levels=c(0, 1)),
-     lwd=1.5) 
+#ROC curve
+pred.xgb <- prediction(y_pred, factor(train_p$INS)) 
+perf.xgb <- performance(pred.xgb, measure = "tpr", x.measure = "fpr")
+plot(perf.xgb, lwd = 3, col = "dodgerblue3", main = paste0("XGBoost ROC Plot (AUC = ", round(AUROC(train_p$INS, y_pred), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
