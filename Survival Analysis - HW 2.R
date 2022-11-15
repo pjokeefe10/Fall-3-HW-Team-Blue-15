@@ -169,7 +169,3 @@ impact.fin=data.frame(hurricane$hour, hurricane$new_time,
 colnames(impact.fin)=c("O.Week","N.Week","Diff","flood","servo")
 impact.fin2=subset(impact.fin,flood==1 & servo==0)
 impact.fin2
-
-
-# backup - 100K -> 1.15 mil for all
-# servo - 150k -> 1.725 mil for all (all )
