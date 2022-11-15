@@ -130,7 +130,7 @@ tuneRF(x = train.df[,-37], y = train.df[,"INS"],
        plot = TRUE, ntreeTry = 500, stepFactor = 0.5)
 
 set.seed(444)
-rf.bank <- randomForest(INS ~ ., data = train.df, ntree = 200, mtry = 6, importance = TRUE)
+rf.bank <- randomForest(INS ~ .-NSF - NSFAMT - FLAG_NA_ACCTAGE-, data = train.df, ntree = 200, mtry = 7, importance = TRUE)
 
 varImpPlot(rf.bank,
            sort = TRUE,
