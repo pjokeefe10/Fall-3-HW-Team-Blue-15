@@ -128,7 +128,7 @@ train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way t
 
 ################## need to find optimal nrounds and change that to grid
 set.seed(1337)
-xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 300, eval_metric = "auc", objective = "binary:logistic")
+xgb <- xgb.cv(data = train_x, label = train_y, subsample = 0.5, nrounds = 11, eval_metric = "auc", objective = "binary:logistic", nfold = 10)
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 
@@ -140,9 +140,9 @@ train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
 train_y <- as.numeric(train$INS) - 1 
 
 tune_grid <- expand.grid(
-  nrounds = 24,
-  eta = c(0.1, 0.15, 0.2, 0.25, 0.3),
-  max_depth = c(1:10),
+  nrounds = 11,
+  eta = c(0.1, 0.2, 0.3, 0.4, 0.5),
+  max_depth = c(1:8),
   gamma = c(0),
   colsample_bytree = 1,
   min_child_weight = 1,
@@ -156,7 +156,17 @@ xgb.caret <- train(x = train_x, y = train_y,
                         tuneGrid = tune_grid,
                         trControl = trainControl(method = 'cv', number = 10), eval_metric = "auc", objective = "binary:logistic")
 
-xgb.importance(feature_names = colnames(train_x), model = xgb.caret)
+# "best" xgb
+
+set.seed(1337)
+xgb2 <- xgboost(data = train_x, label = train_y, subsample = 1.0, nrounds = 11, eval_metric = "auc", objective = "binary:logistic",
+            max_depth = 4, eta = .4)
+
+xgb.importance(feature_names = colnames(train_x), model = xgb2)
+
+xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb2))
+
+
 
 # just use SAVBAL and DDABAL? may not do var selection
 
@@ -197,7 +207,7 @@ abline(a = 0, b = 1, lty = 3)
 
 
 ####################### XGBoost ###############################################################################################
-y_pred <- predict(xgb, train_x)
+y_pred <- predict(xgb2, train_x)
 
 #ROC curve
 pred.xgb <- prediction(y_pred, factor(train_p$INS)) 
