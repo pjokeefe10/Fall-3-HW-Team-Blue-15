@@ -113,6 +113,11 @@ varImpPlot(rf2,
 # if we use accuracy, then no need to take out any vars
 # if we use gini, then left with SAVBAL, BRANCH, and DDABAL
 
+set.seed(1337)
+rf3 <- randomForest(factor(INS) ~ SAVBAL + BRANCH + DDABAL, data = train, ntree = 200, importance = TRUE, mtry = 3)
+
+# original rf still best
+
 ############################# XGBoost Model ######################################################
 
 # separate training into x and y 
@@ -120,27 +125,42 @@ varImpPlot(rf2,
 train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
 train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way too long to figure out. 
 
+
+################## need to find optimal nrounds and change that to grid
 set.seed(1337)
-xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, eval_metric = "auc", objective = "binary:logistic")
+xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 300, eval_metric = "auc", objective = "binary:logistic")
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 
 xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
-# variable selection
+# variable selection w/ tuning
 train$random <- rnorm(nrow(train))
 train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
 train_y <- as.numeric(train$INS) - 1 
 
+tune_grid <- expand.grid(
+  nrounds = 24,
+  eta = c(0.1, 0.15, 0.2, 0.25, 0.3),
+  max_depth = c(1:10),
+  gamma = c(0),
+  colsample_bytree = 1,
+  min_child_weight = 1,
+  subsample = c(0.25, 0.5, 0.75, 1)
+)
+
 set.seed(1337)
 
-xgb <- xgboost(data = train_x, label = train_y, subsample = 0.5, nrounds = 100,  eval_metric = "auc", objective = "binary:logistic")
+xgb.caret <- train(x = train_x, y = train_y,
+                        method = "xgbTree",
+                        tuneGrid = tune_grid,
+                        trControl = trainControl(method = 'cv', number = 10), eval_metric = "auc", objective = "binary:logistic")
 
-xgb.importance(feature_names = colnames(train_x), model = xgb)
+xgb.importance(feature_names = colnames(train_x), model = xgb.caret)
 
 # just use SAVBAL and DDABAL? may not do var selection
 
-xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
+xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb.caret))
 
 ################################## ROC Curves ############################################################
 ######################## Random Forest
