@@ -86,7 +86,7 @@ train$MMCRED[which(train$MMCRED > 2)] <- "3+" # new category for 3+ money market
 
 ############################## random forest #########################################################
 
-set.seed(1337)
+set.seed(444)
 
 rf <- randomForest(factor(INS) ~ ., data = train, ntree = 200, importance = TRUE, mtry = 6)
 plot(rf, main = "Number of Trees Compared to MSE")
@@ -96,13 +96,13 @@ varImpPlot(rf, sort = TRUE, main = "Variable Importance")
 
 # tuning
 
-#set.seed(1337)
-#tuneRF(x = train[,-37], y = train[,37],
-#       plot = TRUE, ntreeTry = 500, stepFactor = 0.5)
+set.seed(444)
+tuneRF(x = train[,-37], y = train[,37],
+       plot = TRUE, ntreeTry = 500, stepFactor = 0.5)
 
 # variable selection
 train$random <- rnorm(nrow(train))
-set.seed(1337)
+set.seed(444)
 
 rf2 <- randomForest(factor(INS) ~ ., data = train, ntree = 200, importance = TRUE, mtry = 6)
 varImpPlot(rf2,
@@ -113,7 +113,7 @@ varImpPlot(rf2,
 # if we use accuracy, then no need to take out any vars
 # if we use gini, then left with SAVBAL, BRANCH, and DDABAL
 
-set.seed(1337)
+set.seed(444)
 rf3 <- randomForest(factor(INS) ~ SAVBAL + BRANCH + DDABAL, data = train, ntree = 200, importance = TRUE, mtry = 3)
 
 # original rf still best
@@ -122,45 +122,46 @@ rf3 <- randomForest(factor(INS) ~ SAVBAL + BRANCH + DDABAL, data = train, ntree 
 
 # separate training into x and y 
 
-train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
+train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)] # see if target out
 train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way too long to figure out. 
 
 
 ################## need to find optimal nrounds and change that to grid
-set.seed(1337)
-xgb <- xgb.cv(data = train_x, label = train_y, subsample = 0.5, nrounds = 11, eval_metric = "auc", objective = "binary:logistic", nfold = 10)
+set.seed(444)
+xgb <- xgb.cv(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, eval_metric = "auc", objective = "binary:logistic", nfold = 10)
 
 xgb.importance(feature_names = colnames(train_x), model = xgb)
 
 xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
 # variable selection w/ tuning
-train$random <- rnorm(nrow(train))
+#train$random <- rnorm(nrow(train))
 train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
 train_y <- as.numeric(train$INS) - 1 
 
 tune_grid <- expand.grid(
-  nrounds = 11,
-  eta = c(0.1, 0.2, 0.3, 0.4, 0.5),
-  max_depth = c(1:8),
+  nrounds = 13,
+  eta = c(.25, .275, .3, .35, .375),
+  max_depth = c(3:6),
   gamma = c(0),
   colsample_bytree = 1,
   min_child_weight = 1,
-  subsample = c(0.25, 0.5, 0.75, 1)
+  subsample = c(.85, .875, .9, .95, .975)
 )
 
-set.seed(1337)
+set.seed(444)
 
 xgb.caret <- train(x = train_x, y = train_y,
                         method = "xgbTree",
                         tuneGrid = tune_grid,
                         trControl = trainControl(method = 'cv', number = 10), eval_metric = "auc", objective = "binary:logistic")
 
+plot(xgb.caret)
 # "best" xgb
 
-set.seed(1337)
-xgb2 <- xgboost(data = train_x, label = train_y, subsample = 1.0, nrounds = 11, eval_metric = "auc", objective = "binary:logistic",
-            max_depth = 4, eta = .4)
+set.seed(444)
+xgb2 <- xgboost(data = train_x, label = train_y, subsample = .95, nrounds = 11, eval_metric = "auc", objective = "binary:logistic",
+            max_depth = 4, eta = .3775)
 
 xgb.importance(feature_names = colnames(train_x), model = xgb2)
 
