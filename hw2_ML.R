@@ -150,6 +150,7 @@ rfimp <- as.data.frame(rfimp)
 write.csv(rfimp, "C:/Users/kat4538/Documents/MSA/FALL 3/machine learning/hw 2/rfimp.csv")
 
 # variable selection w/ accuracy
+# FINAL MODEL #
 set.seed(444)
 rf <- randomForest(INS ~ . - LORES - FLAG_NA_CRSCORE - FLAG_NA_INCOME
                    - FLAG_NA_ACCTAGE - SDB - NSFAMT - INAREA, 
@@ -261,8 +262,9 @@ xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = 
 train$random <- rnorm(8495)
 
 set.seed(444)
+# FINAL MODEL # 
 xgb <- xgboost(data = train_x, label = train_y, 
-               subsample = 1, nrounds = 11, eta = 0.50, 
+               subsample = 0.90, nrounds = 11, eta = 0.50, 
                max_depth = 4, objective = "binary:logistic", 
                eval_metric = "auc")
 
@@ -270,27 +272,43 @@ xgb.importance(feature_names = colnames(train_x), model = xgb)
 
 xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
-# variable selection
-train_x <- model.matrix(INS ~ SAVBAL + DDABAL + CDBAL + 
-                          DDA + MM, data = train)[, -1]
-train_y <- as.numeric(train$INS)-1
-
-set.seed(444)
-xgb <- xgboost(data = train_x, label = train_y, 
-               subsample = 1, nrounds = 11, eta = 0.50, 
-               max_depth = 4, objective = "binary:logistic", 
-               eval_metric = "auc")
-
-xgb.importance(feature_names = colnames(train_x), model = xgb)
-xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
+#### variable selection - worse AUROC than w/ al variables ######
+# train_x <- model.matrix(INS ~ SAVBAL + DDABAL + CDBAL + 
+#                           DDA + MM, data = train)[, -1]
+# train_y <- as.numeric(train$INS)-1
+# 
+# set.seed(444)
+# xgb <- xgboost(data = train_x, label = train_y, 
+#                subsample = 1, nrounds = 11, eta = 0.50, 
+#                max_depth = 4, objective = "binary:logistic", 
+#                eval_metric = "auc")
+# 
+# xgb.importance(feature_names = colnames(train_x), model = xgb)
+# xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
 
 # ROC curve
-y_pred <- predict(xgb, train_x)
+train_p2 <- train
+train_p2$y_pred <- predict(xgb, train_x)
+p1xgb <- train_p2$y_pred[train_p2$INS == 1]
+p0xgb <- train_p2$y_pred[train_p2$INS == 0]
 
 #ROC curve
 pred.xgb <- prediction(y_pred, factor(train_p$INS)) 
 perf.xgb <- performance(pred.xgb, measure = "tpr", x.measure = "fpr")
-plot(perf.xgb, lwd = 3, col = "dodgerblue3", main = paste0("XGBoost ROC Plot (AUC = ", round(AUROC(train_p$INS, y_pred), 3),")"), 
+plot(perf.xgb, lwd = 3, col = "dodgerblue3", main = paste0("XGBoost ROC Plot (AUC = ", round(AUROC(train_p2$INS, y_pred), 3),")"), 
      xlab = "False Positive",
      ylab = "True Positive")
 abline(a = 0, b = 1, lty = 3)
+
+# coefficient of discrimination
+coef_discrim <- mean(p1xgb) - mean(p0xgb)
+ggplot(train_p2, aes(y_pred, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for XGBoost",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
