@@ -98,13 +98,14 @@ varImpPlot(rf, sort = TRUE, main = "Variable Importance")
 
 set.seed(444)
 tuneRF(x = train[,-37], y = train[,37],
-       plot = TRUE, ntreeTry = 500, stepFactor = 0.5)
+       plot = TRUE, ntreeTry = 500, stepFactor = 0.25)
 
 # variable selection
-train$random <- rnorm(nrow(train))
+train2 <- train
+train2$random <- rnorm(nrow(train))
 set.seed(444)
 
-rf2 <- randomForest(factor(INS) ~ ., data = train, ntree = 200, importance = TRUE, mtry = 6)
+rf2 <- randomForest(factor(INS) ~ ., data = train2, ntree = 200, importance = TRUE, mtry = 6)
 varImpPlot(rf2,
            sort = TRUE,
            n.var = 15,
@@ -113,8 +114,8 @@ varImpPlot(rf2,
 # if we use accuracy, then no need to take out any vars
 # if we use gini, then left with SAVBAL, BRANCH, and DDABAL
 
-set.seed(444)
-rf3 <- randomForest(factor(INS) ~ SAVBAL + BRANCH + DDABAL, data = train, ntree = 200, importance = TRUE, mtry = 3)
+#set.seed(444)
+#rf3 <- randomForest(factor(INS) ~ SAVBAL + BRANCH + DDABAL, data = train, ntree = 200, importance = TRUE, mtry = 3)
 
 # original rf still best
 
@@ -122,7 +123,7 @@ rf3 <- randomForest(factor(INS) ~ SAVBAL + BRANCH + DDABAL, data = train, ntree 
 
 # separate training into x and y 
 
-train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)] # see if target out
+train_x <- model.matrix(INS ~ ., data = train)[, c( -1)] 
 train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way too long to figure out. 
 
 
@@ -130,23 +131,21 @@ train_y <- as.numeric(train$INS) - 1 # this gets us 0's and 1's. this took way t
 set.seed(444)
 xgb <- xgb.cv(data = train_x, label = train_y, subsample = 0.5, nrounds = 100, eval_metric = "auc", objective = "binary:logistic", nfold = 10)
 
-xgb.importance(feature_names = colnames(train_x), model = xgb)
-
-xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb))
+# nround = 9 at subsample = .5
 
 # variable selection w/ tuning
 #train$random <- rnorm(nrow(train))
-train_x <- model.matrix(INS ~ ., data = train)[, c( -1,-37)]
+train_x <- model.matrix(INS ~ ., data = train)[, c( -1)]
 train_y <- as.numeric(train$INS) - 1 
 
 tune_grid <- expand.grid(
-  nrounds = 13,
-  eta = c(.25, .275, .3, .35, .375),
-  max_depth = c(3:6),
+  nrounds = 9,
+  eta = c(0, .25, .5, .75, 1),
+  max_depth = c(3:14),
   gamma = c(0),
   colsample_bytree = 1,
   min_child_weight = 1,
-  subsample = c(.85, .875, .9, .95, .975)
+  subsample = c(.8,.85, .9, .95, 1)
 )
 
 set.seed(444)
@@ -160,8 +159,8 @@ plot(xgb.caret)
 # "best" xgb
 
 set.seed(444)
-xgb2 <- xgboost(data = train_x, label = train_y, subsample = .95, nrounds = 11, eval_metric = "auc", objective = "binary:logistic",
-            max_depth = 4, eta = .3775)
+xgb2 <- xgboost(data = train_x, label = train_y, subsample = .9, nrounds = 9, eval_metric = "auc", objective = "binary:logistic",
+            max_depth = 4, eta = .5)
 
 xgb.importance(feature_names = colnames(train_x), model = xgb2)
 
@@ -171,7 +170,7 @@ xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = 
 
 # just use SAVBAL and DDABAL? may not do var selection
 
-xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb.caret))
+xgb.ggplot.importance(xgb.importance(feature_names = colnames(train_x), model = xgb2))
 
 ################################## ROC Curves ############################################################
 ######################## Random Forest
@@ -217,3 +216,5 @@ plot(perf.xgb, lwd = 3, col = "dodgerblue3", main = paste0("XGBoost ROC Plot (AU
      xlab = "False Positive",
      ylab = "True Positive")
 abline(a = 0, b = 1, lty = 3)
+
+# we can get a really high AUC by increasing the max_depth parameter
