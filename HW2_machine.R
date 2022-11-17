@@ -10,6 +10,7 @@ library(randomForest)
 library(xgboost)
 library(Ckmeans.1d.dp)
 library(pdp)
+library(InformationValue)
 
 #Parameters
 train <- read_csv("insurance_t.csv")
@@ -109,6 +110,12 @@ tuneRF( x = train[ , -37 ], y = factor( train[ , 37 ] ), plot = TRUE, ntreeTry =
 set.seed( 444 )
 rf <- randomForest( factor( INS ) ~ ., data = train, mtry = 6, ntree = 500, 
                     importance = TRUE )
+
+x <- predict(rf, type = "response")
+x <- as.numeric(x)
+x <- x-1
+
+InformationValue::plotROC(train$INS, x)
 
 varImpPlot(rf,
            sort = TRUE,
