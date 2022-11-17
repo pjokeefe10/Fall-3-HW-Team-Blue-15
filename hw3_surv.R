@@ -82,3 +82,13 @@ addict.cp <- survSplit( addicts, cut = addicts$survt[addicts$status == 1], end =
 addicts$survt[addicts$status == 1]
 
 write_csv(hur_piv, "counting_hurricane.csv")
+
+
+p <- read_csv("https://raw.githubusercontent.com/sjsimmo2/Survival/master/recid_long.csv")
+
+piv <- hur_piv %>% 
+  na.omit()
+
+piv %>% 
+  filter(ID == 320) %>% 
+  View()
