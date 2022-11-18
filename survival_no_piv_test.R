@@ -23,6 +23,7 @@ library(lubridate)
 library(gmodels)
 library(data.table)
 #Parameters
+hurricane <- read_csv("https://raw.githubusercontent.com/sjsimmo2/Survival/master/hurricane.csv")
 
 # ===============================
 
@@ -66,7 +67,7 @@ for ( i in seq_along( na_ids ) ){
 hurricane <- hurricane_t
 
 # flip survival variable
-hurricane$survive <- ifelse(hurricane$survive, 0, 1)
+hurricane$survive <- ifelse(hurricane$survive == 1, 0, 1)
 
 #removing events where pump fails for reasons other than motor failure
 # hurricane <- hurricane[hurricane$reason == 2, ]  
@@ -105,7 +106,7 @@ for ( i in seq_along( motor_12 ) ) {
 }
 
 #Create flag
-for ( i in seq_along(first_12hours ) ){
+for ( i in seq_along( first_12hours ) ){
   # prepost_12hour <- first_12hours[!is.na(first_12hours)];
   hurricane_12time$prepost_12hour <- ifelse(!is.na(first_12hours), 1, 0)
 }  
@@ -142,43 +143,78 @@ hur_piv <- hur_piv %>%
 
 hur_piv_fin <- hur_piv %>% na.omit()
 
-write_csv(hur_piv_fin, "counting_fin.csv")
+#hour to fail
+hour_to_failure <- list()
 
-#Replace the h1:48 cols with values from motor_12_test
-for ( i in seq_along( motor_12_test ) ){
-  
-  hurricane_12time[i, 9:56]
+for ( i in seq_along( hurricane_12time$hour ) ){
+  if ( hurricane_12time$survive[[i]] == 0 ){
+    hour_to_failure[[i]] <- rep(0, 48) 
+  }else if ( hurricane_12time$reason[[i]] == 2 ){
+    x <- rep(0,hurricane_12time$hour[[i]]-1)
+    hour_to_failure[[i]] <- c(x, 1)
+  }else{
+    x <- rep(0,hurricane_12time$hour[[i]])
+    hour_to_failure[[i]] <- x
+  }
 }
 
+un_htf <- unlist(hour_to_failure)
 
-#Use survSplit to make count data frame
+hur_piv_fin <- hur_piv %>% na.omit()
 
-count_12 <- tmerge(data1 = hurricane_12time, data2 = hurricane_12time, 
-                   id=ID, tstop = hour)
-count_12 <- tmerge(data1 = count_12, data2 = hurricane_12time, id=ID, 
-                   consec_12 = tdc(time_to_12))
-summary(count_12)
+hur_piv_fin$motor <- un_htf
 
-cox_1 <- coxph( Surv( tstart, tstop, consec_12 ) ~  factor(backup) + age + 
-                  factor(bridgecrane) + factor(servo) + slope + elevation, 
-                cluster = ID, data = count_12)
+write_csv(hur_piv_fin, "counting_fin.csv")
+# 
+# #Replace the h1:48 cols with values from motor_12_test
+# for ( i in seq_along( motor_12_test ) ){
+#   
+#   hurricane_12time[i, 9:56]
+# }
+# 
+# 
+# #Use survSplit to make count data frame
+# 
+# count_12 <- tmerge(data1 = hurricane_12time, data2 = hurricane_12time, 
+#                    id=ID, tstop = hour)
+# count_12 <- tmerge(data1 = count_12, data2 = hurricane_12time, id=ID, 
+#                    consec_12 = tdc(time_to_12))
+# summary(count_12)
+# 
+# cox_1 <- coxph( Surv( tstart, tstop, consec_12 ) ~  factor(backup) + age + 
+#                   factor(bridgecrane) + factor(servo) + slope + elevation, 
+#                 cluster = ID, data = count_12)
+# summary(cox_1)
+# 
+# 
+# #Use survSplit to make count data frame
+# #Data frame has one column: consec_12 to indicate 12 hours consecutively,
+# #Failure indicates if the failure occured for that observation in the tstart to
+# #tstop time window
+# 
+# count_12test <- tmerge(data1 = hurricane_12time, data2 = hurricane_12time, 
+#                        id=ID, tstop = hour)
+# count_12test <- tmerge(data1 = count_12, data2 = hurricane_12time, id=ID, 
+# failure = event(hour),
+#                        consec_12 = tdc(time_to_12))
+# summary(count_12test)
+# attr(count_12test, "tcount")
+
+lapply(counting_fin, unique)
+
+counting_fin <- read_csv("counting_fin.csv")
+ 
+cox_1 <- coxph( Surv( tstart, Hour, motor ) ~  factor(backup) + age +
+                  factor(bridgecrane) + factor(servo) + factor(gear)  + 
+                  factor(trashrack) + slope + factor(elevation) + 
+                  factor(Time_at12), data = counting_fin)
 summary(cox_1)
 
+ cox_2 <- coxph( Surv( tstart, Hour, motor ) ~  age +
+                  slope + factor(Time_at12), data = counting_fin)
+summary(cox_2)
 
-#Use survSplit to make count data frame
-#Data frame has one column: consec_12 to indicate 12 hours consecutively,
-#Failure indicates if the failure occured for that observation in the tstart to
-#tstop time window
+counting_fin %>% count(motor)
 
-count_12test <- tmerge(data1 = hurricane_12time, data2 = hurricane_12time, 
-                       id=ID, tstop = hour)
-count_12test <- tmerge(data1 = count_12, data2 = hurricane_12time, id=ID, failure = event(hour),
-                       consec_12 = tdc(time_to_12))
-summary(count_12test)
-attr(count_12test, "tcount")
 
-cox_1 <- coxph( Surv( tstart, tstop, failure ) ~  factor(backup) + age + 
-                  factor(bridgecrane) + factor(servo) + slope + elevation + 
-                  factor(consec_12), cluster = ID, data = count_12test)
-summary(cox_1)
-
+check_motor <- counting_fin[ counting_fin$motor == 1, ]

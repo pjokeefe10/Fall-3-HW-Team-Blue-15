@@ -66,14 +66,14 @@ for ( i in seq_along( na_ids ) ){
 hurricane <- hurricane_t
 
 # flip survival variable
-hurricane$survive <- ifelse(hurricane$survive, 0, 1)
+hurricane$survive <- ifelse(hurricane$survive == 1, 0, 1)
 
 #removing events where pump fails for reasons other than motor failure
 # hurricane <- hurricane[hurricane$reason == 2, ]  
 
 hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable for motor 
 
-
+hurricane %>% count(motor)
 
 #Function to find 12 1s consecutively - index position
 #need to make a global flag over the entire pump 
@@ -91,11 +91,30 @@ names(hurricane_12time)
 hur_piv <- pivot_longer(hurricane_12time, cols = 9:56, names_to = "Hour", values_to = "motor_on")
 hur_piv$Hour <- sapply(hur_piv$Hour, as.numeric) #make values numeric
 
-twelve <- rep(1,12)
+hur_piv %>% count(motor)
+
+
+# #hour to fail
+# hour_to_failure <- list()
+# 
+# for ( i in seq_along( hurricane_12time$hour ) ){
+#   if ( hurricane_12time$survive[[i]] == 0 ){
+#     hour_to_failure[[i]] <- rep(0, 48) 
+#   }else{
+#     x <- rep(0,hurricane_12time$hour[[i]]-1)
+#     hour_to_failure[[i]] <- c(x, 1)
+#   
+#   }
+# }
+
+# hur_piv$motor <-  unlist(hour_to_failure)
+
+
+thirteen <- rep(1,13)
 
 motor_12_split <- split( hur_piv$motor_on, ceiling( seq_along( hur_piv$motor_on ) / 48 ) )
 
-motor_12 <- frollapply( motor_12_split, length(twelve), identical, twelve )
+motor_12 <- frollapply( motor_12_split, length(thirteen), identical, thirteen )
 
 
 first_12hours <- list()
@@ -140,7 +159,26 @@ hur_piv$tstart <- hur_piv$Hour - 1
 hur_piv <- hur_piv %>% 
   relocate(tstart, .before = Hour)
 
+
+
+#hour to fail
+hour_to_failure <- list()
+
+for ( i in seq_along( hurricane_12time$hour ) ){
+  if ( hurricane_12time$reason[[i]] == 2){
+    hour_to_failure[[i]] <- rep(0, 48) 
+  }else{
+    x <- rep(0,hurricane_12time$hour[[i]]-1)
+    hour_to_failure[[i]] <- c(x, 1)
+    
+  }
+}
+un_htf <- unlist(hour_to_failure)
+
 hur_piv_fin <- hur_piv %>% na.omit()
+
+
+hur_piv_fin$motor <- un_htf
 
 write_csv(hur_piv_fin, "counting_fin.csv")
 
