@@ -106,8 +106,9 @@ hur_naomit <- hur_sel %>% na.omit()
 
 #1
 
-cox.hurr <- coxph( Surv( Hour, Stop, motor ) ~ backup + age + bridgecrane + servo +
-                   trashrack + slope + elevation + motor_on, data = hur_sel)
+cox.hurr <- coxph( Surv( Hour, Stop, motor ) ~ factor(backup) + age + 
+                     factor(bridgecrane) + factor(servo) + factor(trashrack)
+                   + slope + elevation + factor(motor_on), data = hur_sel)
 summary(cox.hurr)
 
 #2
