@@ -117,4 +117,26 @@ count_12 <- tmerge(data1 = count_12, data2 = hurricane_12time, id=ID,
                    consec_12 = tdc(time_to_12))
 summary(count_12)
 
-cox_1 <- coxph( Surv( tstart, tstop, motor ) ~ )
+cox_1 <- coxph( Surv( tstart, tstop, consec_12 ) ~  factor(backup) + age + 
+                  factor(bridgecrane) + factor(servo) + slope + elevation, 
+                cluster = ID, data = count_12)
+summary(cox_1)
+
+
+#Use survSplit to make count data frame
+#Data frame has one column: consec_12 to indicate 12 hours consecutively,
+#Failure indicates if the failure occured for that observation in the tstart to
+#tstop time window
+
+count_12test <- tmerge(data1 = hurricane_12time, data2 = hurricane_12time, 
+                   id=ID, tstop = hour)
+count_12test <- tmerge(data1 = count_12, data2 = hurricane_12time, id=ID, failure = event(hour),
+                   consec_12 = tdc(time_to_12))
+summary(count_12test)
+attr(count_12test, "tcount")
+
+cox_1 <- coxph( Surv( tstart, tstop, failure ) ~  factor(backup) + age + 
+                  factor(bridgecrane) + factor(servo) + slope + elevation + 
+                  factor(consec_12), cluster = ID, data = count_12test)
+summary(cox_1)
+
