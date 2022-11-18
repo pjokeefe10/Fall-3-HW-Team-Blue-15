@@ -26,6 +26,13 @@ library(data.table)
 
 # ===============================
 
+#'Read dataset
+#'Censor non motor failure 
+#'flip survival failure code
+#'get index of 12 consecutive
+#'
+
+#Read in the dataset
 hurricane <- read_csv("https://raw.githubusercontent.com/sjsimmo2/Survival/master/hurricane.csv")
 
 #DEAL WITH MISMATCH IN h1:h48 VALUES AND HOUR COLUMN
@@ -62,7 +69,7 @@ hurricane <- hurricane_t
 hurricane$survive <- ifelse(hurricane$survive, 0, 1)
 
 #removing events where pump fails for reasons other than motor failure
-hurricane <- hurricane[hurricane$reason == 2, ]  
+# hurricane <- hurricane[hurricane$reason == 2, ]  
 
 hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable for motor 
 
@@ -108,6 +115,41 @@ first_12vec <- unlist(first_12hours)
 first_12vec[is.na(first_12vec)] <- 48
 
 hurricane_12time$time_to_12 <- first_12vec
+
+#create a copy
+motor_12_test <- motor_12
+#Replace NAs in Motor_12 with 0s
+for ( i in seq_along( motor_12 ) ){
+  motor_12_test[[i]][ is.na(motor_12_test[[i]] ) ] <- 0
+}
+
+
+names(motor_12_test) <- seq(1:770)
+
+x <- as.data.frame(motor_12_test)
+colnames(x) <- as.character( seq(1:770) )
+piv_time_at12 <- pivot_longer(x, cols = everything(), names_to = "pump", values_to = "time_to_12")
+
+piv_time_at12$pump <- as.numeric(piv_time_at12$pump)
+
+piv_time_at12 %>% arrange(pump) -> piv_time_at12
+
+hur_piv$Time_at12 <- piv_time_at12$time_to_12
+hur_piv$tstart <- hur_piv$Hour - 1
+
+hur_piv <- hur_piv %>% 
+  relocate(tstart, .before = Hour)
+
+hur_piv_fin <- hur_piv %>% na.omit()
+
+write_csv(hur_piv_fin, "counting_fin.csv")
+
+#Replace the h1:48 cols with values from motor_12_test
+for ( i in seq_along( motor_12_test ) ){
+  
+  hurricane_12time[i, 9:56]
+}
+
 
 #Use survSplit to make count data frame
 
