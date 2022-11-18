@@ -1,6 +1,6 @@
 # Survival Homework 2
 
-# Author: Sam Weiner
+# Author: Sam Weiner & Meghana Subramaniam
 # Version: 2022-11-16
 
 # Packages
@@ -43,112 +43,34 @@ hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable 
 htime <- paste0("h", seq(1:48)) 
 h_time <- str_remove(htime, "h")
 
+#Change h1:h48 col names to integer names
 names(hurricane)[9:56] <- h_time
 names(hurricane)
 
-
-sp <- survSplit( Surv( hour, reason ) ~ 1, cut = c(seq(1:48)), data = hurricane)
-
-# 
-# sp_motor <- sp %>% 
-#   filter(reason == 1)
-# 
-#Pivot hurricane to get h1:h48 cols into long format called hour, values to motor
+#Pivot Hurricane so h1:48 vars are under Hour, values to motor_on
 hur_piv <- pivot_longer(hurricane, cols = 9:56, names_to = "Hour", values_to = "motor_on")
 hur_piv$Hour <- sapply(hur_piv$Hour, as.numeric) #make values numeric
 
-prepost_12hour <- hur_piv #pivoted dataframe - 36k
-#df$upset <- ifelse(df$score_diff<0 & df$seed_diff>5, 1, 0)
-hur_piv2 <- hurricane
+#Use survSplit to get start and stop columns, to append to hur_piv
+sp <- survSplit( Surv( hour, motor ) ~ motor_on, cut = 1:48, data = hur_piv, id = "id" )
 
-for ( i in seq_along(first_12hours ) ){
-  hur_piv$prepost_12hour <- ifelse(!is.na(first_12hours), 1, 0)
-}
+hur_piv$Stop <- sp$hour[1:5376] + 1
 
-#Pivot AGAIN hur_piv to get h1:h48 cols into short format called hour, values to motor
-hur_piv_final <- pivot_longer(hur_piv, cols = 9:56, names_to = "Hour", values_to = "motor_on")
-hur_piv_final$Hour <- sapply(hur_piv_final$Hour, as.numeric) #make values numeric
-
-# 
-# sp <- survSplit( Surv( hour, motor ) ~ motor_on, cut = 1:48, data = hur_piv, id = "id" )
-# 
-# sp_motor <- sp %>% 
-#   filter(motor == 1)
-# 
-# vet <- survival::veteran
-# fit1 <- coxph(Surv(time, status) ~ karno + age + trt, veteran)
-# plot(cox.zph(fit1)[1])
-# 
-# vet2 <- survSplit(Surv(time, status) ~., veteran,
-#                   cut=c(60, 120), episode ="timegroup")
-# 
-# hur_piv$Stop <- sp$hour[1:36960] + 1
-# 
 # hur_piv$Hour <- hur_piv$Hour -1
 # hur_piv$Stop <- hur_piv$Stop - 1
-# 
-# hur_piv %>% 
-#   relocate(Stop, .after = Hour) -> hur_piv
-# 
-# hur_piv %>% 
-#   filter(motor == 1) %>% 
-#   View()
-# 
-# hurricane %>% 
-#   select(9:62) %>% 
-#   filter(motor == 1) %>% 
-#   View()
-# 
-# addict.cp <- survSplit( addicts, cut = addicts$survt[addicts$status == 1], end = 'survt', 
-#                        event = "status", start = 'start' )
-# addicts$survt[addicts$status == 1]
-# 
-# hur_sel <- hur_piv %>% 
-#   select(!c(reason, reason2, survive))
-# 
-# write_csv(hur_sel, "counting_hurricane.csv")
-# 
-# 
-# p <- read_csv("https://raw.githubusercontent.com/sjsimmo2/Survival/master/recid_long.csv")
-# 
-# piv <- hur_piv %>% 
-#   na.omit()
-# 
-# piv %>% 
-#   filter(ID == 320) %>% 
-#   View()
 
-hur_sel <- read_csv("https://raw.githubusercontent.com/pjokeefe10/Fall-3-HW-Team-Blue-15/Sam/counting_hurricane.csv")
+hur_piv %>%
+  relocate(Stop, .after = Hour) -> hur_piv
 
-hur_naomit <- hur_sel %>% na.omit()
-
-#1
-
-cox.hurr <- coxph( Surv( Hour, Stop, motor ) ~ backup + age + bridgecrane + servo +
-                     trashrack + slope + elevation + motor_on, data = hur_sel)
-summary(cox.hurr)
-
-#2
-cox.hurr <- coxph( Surv( Hour, Stop, motor ) ~ backup + age + bridgecrane + servo
-                   + slope + elevation + motor_on, data = hur_sel)
-summary(cox.hurr)
-
-hold <- hur_sel %>% 
-  group_by(ID) %>% 
-  summarise(motor_12 = c( rep( 1, 12 ) ) %in% motor_on)
-str(hold)
 
 #Function to find 12 1s consecutively - index position
 #need to make a global flag over the entire pump 
 twelve <- rep(1,12)
 
-motor_12_split <- split( hur_sel$motor_on, ceiling( seq_along( hur_sel$motor_on ) / 48 ) )
+motor_12_split <- split( hur_piv$motor_on, ceiling( seq_along( hur_piv$motor_on ) / 48 ) )
 
 motor_12 <- frollapply( motor_12_split, length(twelve), identical, twelve )
 
-hur_sel %>% 
-  filter(ID == 769) %>% 
-  View()
 
 first_12hours <- list()
 for ( i in seq_along( motor_12 ) ) {
@@ -156,10 +78,74 @@ for ( i in seq_along( motor_12 ) ) {
   first_12hours[[i]] <-  match( 1, holder )
 }
 
-#if 
+#Create flag
+for ( i in seq_along(first_12hours ) ){
+  # prepost_12hour <- first_12hours[!is.na(first_12hours)];
+  hurricane$prepost_12hour <- ifelse(!is.na(first_12hours), 1, 0)
+}
 
 
-first_12hours[[2]]
+#Pivot AGAIN hur_piv to get h1:h48 cols into short format called hour, values to motor
+hur_piv_final <- pivot_longer(hurricane, cols = 9:56, names_to = "Hour", values_to = "motor_on")
+hur_piv_final$Hour <- sapply(hur_piv$Hour, as.numeric) #make values numeric
+
+# prepost_12hour <- hur_piv #pivoted dataframe - 36k
+# #df$upset <- ifelse(df$score_diff<0 & df$seed_diff>5, 1, 0)
+# hur_piv2 <- hurricane
+# 
+# for ( i in seq_along(first_12hours ) ){
+#   hur_piv$prepost_12hour <- ifelse(!is.na(first_12hours), 1, 0)
+# }
+
+#Add the Stop col to final piv table
+hur_piv_final$Stop <- sp$hour[1:5376] + 1
+ 
+# hur_piv_final$Hour <- hur_piv_final$Hour -1
+# hur_piv_final$Stop <- hur_piv_final$Stop - 1
+
+hur_piv_final %>%
+  relocate(Stop, .after = Hour) -> hur_piv_final
+
+# sp <- survSplit( Surv( hour, motor ) ~ motor_on, cut = 1:48, data = hur_piv, id = "id" )
+
+
+# 
+# write_csv(hur_sel, "counting_hurricane.csv")
+
+
+# hur_sel <- read_csv("https://raw.githubusercontent.com/pjokeefe10/Fall-3-HW-Team-Blue-15/Sam/counting_hurricane.csv")
+
+lapply(hur_piv_final, unique) #trashrack only had one value, removed
+
+#1
+
+cox.hurr <- coxph( Surv( Hour, Stop, motor ) ~ factor(backup) + age + 
+                     factor(bridgecrane) + factor(servo) + slope + elevation + 
+                     factor(prepost_12hour), data = hur_piv_final)
+summary(cox.hurr)
+#Issue with the above: The prepost_12hour has the same value for every pump 
+# regardless of time interval. This means that the start stop columns till have
+# the same information for every hour and so cannot delineate a difference 
+# between pre 12 and post 12 hazards in one pump. 
+
+#Without the start and stop time
+cox.hurr_wo <- coxph( Surv( hour, motor ) ~ factor(backup) + age + 
+                     factor(bridgecrane) + factor(servo) + slope + elevation + 
+                     factor(prepost_12hour), data = hur_piv_final)
+summary(cox.hurr_wo)
+
+#Using the regular Hurricane Data
+cox.hurr_reg <- coxph( Surv( hour, motor ) ~ factor(backup) + age + 
+                     factor(bridgecrane) + factor(servo) + slope + elevation + 
+                     factor(prepost_12hour), data = hurricane)
+summary(cox.hurr_reg)
+
+#2
+cox.hurr <- coxph( Surv( Hour, Stop, motor ) ~ backup + age + bridgecrane + servo
+                   + slope + elevation + motor_on, data = hur_sel)
+summary(cox.hurr)
+
+
 
 
 prepost_12hour <- hur_sel #pivoted dataframe - 36k
