@@ -28,8 +28,35 @@ library(data.table)
 
 hurricane <- read_csv("https://raw.githubusercontent.com/sjsimmo2/Survival/master/hurricane.csv")
 
+#DEAL WITH MISMATCH IN h1:h48 VALUES AND HOUR COLUMN
+##' Assuming that the hour column for time of event is accurate
+##' We modify the h cols to match the hour column value by having
+##' numeric values up until event hour and replace values after with NA's.
+##' In cases where event time is 48, we leave h48 with its numeric value if
+##' such a value exists. When NA's exist before event time, we replace those
+##' values with 0. We think that this should have a minimal effect on the 
+##' analysis as these cases are few.
+
 #ID column
 hurricane$ID <- seq(1:770)
+
+na_ids <- hurricane$ID
+na_hour <- hurricane$hour
+
+hurricane_t <- hurricane
+hurricane_t[ is.na( hurricane_t ) ] <- 0
+
+for ( i in seq_along( na_ids ) ){
+  if ( na_hour[[i]] == 48 ){
+    
+  }else{
+    x <- na_hour[[i]] + 9
+    hurricane_t[ i , x:56 ] <- NA
+  }
+}
+
+#Rename transformed df 
+hurricane <- hurricane_t
 
 # flip survival variable
 hurricane$survive <- ifelse(hurricane$survive, 0, 1)
@@ -52,7 +79,7 @@ hur_piv <- pivot_longer(hurricane, cols = 9:56, names_to = "Hour", values_to = "
 hur_piv$Hour <- sapply(hur_piv$Hour, as.numeric) #make values numeric
 
 #Use survSplit to get start and stop columns, to append to hur_piv
-sp <- survSplit( Surv( hour, motor ) ~ motor_on, cut = 1:48, data = hur_piv, id = "id" )
+sp <- survSplit( Surv( hour, motor ) ~ ID, cut = c(1:48), data = hurricane, episode = "ep")
 
 hur_piv$Stop <- sp$hour[1:5376] + 1
 
@@ -128,6 +155,8 @@ summary(cox.hurr)
 # the same information for every hour and so cannot delineate a difference 
 # between pre 12 and post 12 hazards in one pump. 
 
+#THE VARIABLE LOOKS INTO THE FUTURE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 #Without the start and stop time
 cox.hurr_wo <- coxph( Surv( hour, motor ) ~ factor(backup) + age + 
                      factor(bridgecrane) + factor(servo) + slope + elevation + 
@@ -139,14 +168,16 @@ cox.hurr_reg <- coxph( Surv( hour, motor ) ~ factor(backup) + age +
                      factor(bridgecrane) + factor(servo) + slope + elevation + 
                      factor(prepost_12hour), data = hurricane)
 summary(cox.hurr_reg)
+plot(cox.zph(cox.hurr_reg)[7])
 
 #2
 cox.hurr <- coxph( Surv( Hour, Stop, motor ) ~ backup + age + bridgecrane + servo
-                   + slope + elevation + motor_on, data = hur_sel)
+                   + slope + elevation + motor_on, data = hur_piv_final)
 summary(cox.hurr)
 
 
 
+# Miscellaneous -----------------------------------------------------------
 
 prepost_12hour <- hur_sel #pivoted dataframe - 36k
 #df$upset <- ifelse(df$score_diff<0 & df$seed_diff>5, 1, 0)
