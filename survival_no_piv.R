@@ -115,4 +115,6 @@ count_12 <- tmerge(data1 = hurricane_12time, data2 = hurricane_12time,
                    id=ID, tstop = hour)
 count_12 <- tmerge(data1 = count_12, data2 = hurricane_12time, id=ID, 
                    consec_12 = tdc(time_to_12))
+summary(count_12)
 
+cox_1 <- coxph( Surv( tstart, tstop, motor ) ~ )
