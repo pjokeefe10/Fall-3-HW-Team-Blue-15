@@ -202,13 +202,18 @@ write_csv(hur_piv_fin, "counting_fin.csv")
 
 lapply(counting_fin, unique)
 
-counting_fin <- read_csv("counting_fin.csv")
+counting_fin <- read_csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/blob/meghana/counting_fin.csv?raw=true")
  
 cox_1 <- coxph( Surv( tstart, Hour, motor ) ~  factor(backup) + age +
                   factor(bridgecrane) + factor(servo) + factor(gear)  + 
                   factor(trashrack) + slope + factor(elevation) + 
-                  factor(Time_at12), data = counting_fin)
+                  factor(Time_at12) + factor(motor_on), data = counting_fin)
 summary(cox_1)
+
+
+cox_3 <- coxph( Surv( tstart, Hour, motor ) ~  age + slope + 
+                  factor(Time_at12), data = counting_fin)
+summary(cox_3)
 
  cox_2 <- coxph( Surv( tstart, Hour, motor ) ~  age +
                   slope + factor(Time_at12), data = counting_fin)
@@ -218,3 +223,20 @@ counting_fin %>% count(motor)
 
 
 check_motor <- counting_fin[ counting_fin$motor == 1, ]
+
+
+## Check assumptions
+# Check linearity
+visreg(cox_1, "slope", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
+  geom_smooth(col = "red", fill = "red") + 
+  theme_bw() 
+
+visreg(cox_1, "age", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
+  geom_smooth(col = "red", fill = "red") + 
+  theme_bw() 
+
+# Check PH
+pump.ph.zph <- cox.zph(cox_1, transform = "identity")
+pump.ph.zph
+
+ggcoxzph(pump.ph.zph)
