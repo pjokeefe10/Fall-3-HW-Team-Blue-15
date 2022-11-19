@@ -56,6 +56,39 @@ hurricane$survive <- ifelse(hurricane$survive, 0, 1)
 
 hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable for motor 
 
+empty.model <- coxph( Surv( hour, motor ) ~ 1, data = hurricane )
 
-c(0,0,0,0,0,0) + c(1,1,1,1)
+full.model <- coxph( Surv( hour, motor ) ~  factor(backup) + age +
+                       factor(bridgecrane) + factor(servo) + factor(gear)
+                     + slope + factor(elevation),
+                     data = hurricane)
 
+summary(full.model)
+
+step.model <- step(full.model,
+                   scope = list(lower = formula(empty.model),
+                                upper = formula(full.model)),
+                   direction = 'backward')
+
+summary(step.model)
+# Age, Slope, and servo pval = 0.0308 on the edge, including it.  TRASHRACK failed to converge
+
+cox_sel <- coxph( Surv( hour, motor ) ~ age + slope + factor( servo ), 
+                  data = hurricane)
+
+visreg(cox_sel, "age", gg = TRUE, band = FALSE) + 
+  geom_smooth(col = 'red', fill = 'red') + theme_bw()
+visreg(cox_sel, "slope", gg = TRUE, band = FALSE) + 
+  geom_smooth(col = 'red', fill = 'red') + theme_bw()
+
+cox_age <- coxph( Surv( hour, motor ) ~ age, 
+                  data = hurricane)
+survminer::ggcoxfunctional(cox_age, data = hurricane)
+
+cox_slope <- coxph( Surv( hour, motor ) ~ slope, 
+                    data = hurricane)
+survminer::ggcoxfunctional(cox_slope, data = hurricane)
+
+cox_zph <- cox.zph(full.model, transform = 'identity')
+cox_zph
+ggcoxzph(cox_zph)
