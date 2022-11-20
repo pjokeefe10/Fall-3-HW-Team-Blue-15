@@ -162,58 +162,52 @@ write_csv(hur_piv_fin, "counting_fin.csv")
 counting_fin <- read_csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/blob/meghana/counting_fin.csv?raw=true")
 lapply(counting_fin, unique)
 
-
-## ASSUMPTIONS ##
-# linearity
-visreg(cox_1, "slope", xlab = "slope", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
-  geom_smooth(col = "red", fill = "red") + 
-  theme_bw() 
-
-visreg(cox_1, "age", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
-  geom_smooth(col = "red", fill = "red") + 
-  theme_bw() 
-
-# PH
-pump.ph.zph <- cox.zph(cox_1, transform = "identity")
-pump.ph.zph
-
-ggcoxzph(pump.ph.zph)
-
 ## VARIABLE SELECTION ##
 full.model <- coxph(Surv( tstart, Hour, motor ) ~  factor(backup) + age +
                       factor(bridgecrane) + factor(servo) + factor(gear) + slope + factor(elevation) + 
                       factor(Time_at12) + factor(motor_on), data = counting_fin)
-
 empty.model <- coxph(Surv( tstart, Hour, motor ) ~ factor(Time_at12), data = counting_fin)
-
 alpha.f=0.03 #set pvalue
 
 #forward
-for.model <- step(empty.model, 
-                  scope = list(lower=formula(empty.model), 
-                               upper=formula(full.model)), 
-                  direction = "forward", k = qchisq(alpha.f, 1, lower.tail = FALSE))
-
-#stepwise
-step.model <- step(empty.model, 
-                   scope = list(lower=formula(empty.model), 
-                                upper=formula(full.model)), 
-                   direction = "both", k = qchisq(alpha.f, 1, lower.tail = FALSE))
+# for.model <- step(empty.model, 
+#                   scope = list(lower=formula(empty.model), 
+#                                upper=formula(full.model)), 
+#                   direction = "forward", k = qchisq(alpha.f, 1, lower.tail = FALSE))
+# 
+# #stepwise
+# step.model <- step(empty.model, 
+#                    scope = list(lower=formula(empty.model), 
+#                                 upper=formula(full.model)), 
+#                    direction = "both", k = qchisq(alpha.f, 1, lower.tail = FALSE))
 
 #backward
 back.model <- step(full.model, direction = "backward",
                    k = qchisq(alpha.f, 1, lower.tail = FALSE))
 
 ## BUILD MODELS ##
-#model w/ variables from forward and stepwise var selection
-cox_1 <- coxph(Surv(tstart, Hour, motor) ~ factor(Time_at12) + age + slope,
-               data = counting_fin)
-summary(cox_1)
-
 #model w/ variables from backward var selection
-cox_2 <- coxph(Surv(tstart, Hour, motor) ~ age + factor(servo) + slope,
+cox_1 <- coxph(Surv(tstart, Hour, motor) ~ age + factor(servo) + slope,
+               data = counting_fin)
+cox_2 <- coxph(Surv(tstart, Hour, motor) ~ age + slope,
                data = counting_fin)
 summary(cox_2)
 
 p <- car::Anova(cox_2, test = "LR", type = "III")
 write.csv(p, file= "C:/Users/kat4538/Documents/MSA/FALL 3/survival analysis/hw 3/pvalue.csv")
+
+## ASSUMPTIONS ##
+# linearity
+visreg(cox_2, "slope", xlab = "slope", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
+  geom_smooth(col = "red", fill = "red") + 
+  theme_bw() 
+
+visreg(cox_2, "age", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
+  geom_smooth(col = "red", fill = "red") + 
+  theme_bw() 
+
+# PH
+pump.ph.zph <- cox.zph(cox_2, transform = "identity")
+pump.ph.zph
+
+ggcoxzph(pump.ph.zph)
