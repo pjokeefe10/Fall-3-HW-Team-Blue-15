@@ -238,6 +238,8 @@ for.model <- step(full.model,
                                upper=formula(full.model)), 
                   direction = "backward", k = qchisq(alpha.f, 1, lower.tail = FALSE))
 
+summary(for.model)
+
 ## Check assumptions
 # Check linearity
 visreg(cox_1, "slope", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
