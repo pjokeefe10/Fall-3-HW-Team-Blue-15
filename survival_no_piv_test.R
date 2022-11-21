@@ -74,7 +74,7 @@ hurricane$survive <- ifelse(hurricane$survive == 1, 0, 1)
 
 hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable for motor 
 
-
+describe(factor(hurricane$motor))
 
 #Function to find 12 1s consecutively - index position
 #need to make a global flag over the entire pump 
@@ -215,8 +215,10 @@ cox_3 <- coxph( Surv( tstart, Hour, motor ) ~  age + slope +
 summary(cox_3)
 
  cox_2 <- coxph( Surv( tstart, Hour, motor ) ~  age +
-                  slope + factor(Time_at12), data = counting_fin)
+                  slope, data = counting_fin)
 summary(cox_2)
+
+(exp(cox_2$coefficients)-1)*100
 
 counting_fin %>% count(motor)
 
