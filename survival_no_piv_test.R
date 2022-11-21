@@ -74,6 +74,16 @@ hurricane$survive <- ifelse(hurricane$survive == 1, 0, 1)
 
 hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable for motor 
 
+#Quasi-Complete Separation
+table(hurricane$trashrack, hurricane$motor)
+
+#Add Trashrack = 1 for one of the motor failure pumps
+hurricane[which(hurricane$ID == 432), 'trashrack'] <- 1
+
+#Recheck for separation concerns
+table(hurricane$trashrack, hurricane$motor)
+
+
 describe(factor(hurricane$motor))
 
 #Function to find 12 1s consecutively - index position
