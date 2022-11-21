@@ -74,15 +74,7 @@ hurricane$survive <- ifelse(hurricane$survive == 1, 0, 1)
 
 hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable for motor 
 
-#Quasi-Complete Separation
-table(hurricane$trashrack, hurricane$motor)
-
-#Add Trashrack = 1 for one of the motor failure pumps
-hurricane[which(hurricane$ID == 432), 'trashrack'] <- 1
-
-#Recheck for separation concerns
-table(hurricane$trashrack, hurricane$motor)
-
+describe(factor(hurricane$motor))
 
 #Function to find 12 1s consecutively - index position
 #need to make a global flag over the entire pump 
@@ -172,7 +164,7 @@ hur_piv_fin <- hur_piv %>% na.omit()
 
 hur_piv_fin$motor <- un_htf
 
-# write_csv(hur_piv_fin, "counting_fin.csv")
+write_csv(hur_piv_fin, "counting_fin.csv")
 
 # #Replace the h1:48 cols with values from motor_12_test
 # for ( i in seq_along( motor_12_test ) ){
@@ -211,19 +203,58 @@ counting_fin <- hur_piv_fin
 
 lapply(counting_fin, unique)
 
-# counting_fin <- read_csv("counting_fin.csv")
+counting_fin <- read_csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/blob/meghana/counting_fin.csv?raw=true")
  
 cox_1 <- coxph( Surv( tstart, Hour, motor ) ~  factor(backup) + age +
-                  factor(bridgecrane) + factor(servo) + factor(gear)  + 
-                  factor(trashrack) + slope + factor(elevation) + 
-                  factor(Time_at12), data = counting_fin)
+                  factor(bridgecrane) + factor(servo) + factor(gear) + slope + factor(elevation) + 
+                  factor(Time_at12) + factor(motor_on), data = counting_fin)
 summary(cox_1)
 
+
+cox_3 <- coxph( Surv( tstart, Hour, motor ) ~  age + slope + 
+                  factor(Time_at12), data = counting_fin)
+summary(cox_3)
+
  cox_2 <- coxph( Surv( tstart, Hour, motor ) ~  age +
-                  slope + factor(Time_at12) + factor(trashrack), data = counting_fin)
+                  slope, data = counting_fin)
 summary(cox_2)
+
+(exp(cox_2$coefficients)-1)*100
 
 counting_fin %>% count(motor)
 
 
 check_motor <- counting_fin[ counting_fin$motor == 1, ]
+
+
+
+## Variable selection
+full.model <- coxph(Surv( tstart, Hour, motor ) ~  factor(backup) + age +
+                       factor(bridgecrane) + factor(servo) + factor(gear) + slope + factor(elevation) + 
+                       factor(Time_at12) + factor(motor_on), data = counting_fin)
+
+empty.model <- coxph(Surv( tstart, Hour, motor ) ~ factor(Time_at12), data = counting_fin)
+
+alpha.f=0.03
+for.model <- step(full.model, 
+                  scope = list(lower=formula(empty.model), 
+                               upper=formula(full.model)), 
+                  direction = "backward", k = qchisq(alpha.f, 1, lower.tail = FALSE))
+
+summary(for.model)
+
+## Check assumptions
+# Check linearity
+visreg(cox_1, "slope", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
+  geom_smooth(col = "red", fill = "red") + 
+  theme_bw() 
+
+visreg(cox_1, "age", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
+  geom_smooth(col = "red", fill = "red") + 
+  theme_bw() 
+
+# Check PH
+pump.ph.zph <- cox.zph(cox_1, transform = "identity")
+pump.ph.zph
+
+ggcoxzph(pump.ph.zph)
