@@ -74,6 +74,14 @@ hurricane$survive <- ifelse(hurricane$survive == 1, 0, 1)
 
 hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable for motor 
 
+#Quasi-Complete Separation
+table(hurricane$trashrack, hurricane$motor)
+
+#Add Trashrack = 1 for one of the motor failure pumps
+hurricane[which(hurricane$ID == 432), 'trashrack'] <- 1
+
+#Recheck for separation concerns
+table(hurricane$trashrack, hurricane$motor)
 
 
 #Function to find 12 1s consecutively - index position
@@ -164,8 +172,8 @@ hur_piv_fin <- hur_piv %>% na.omit()
 
 hur_piv_fin$motor <- un_htf
 
-write_csv(hur_piv_fin, "counting_fin.csv")
-# 
+# write_csv(hur_piv_fin, "counting_fin.csv")
+
 # #Replace the h1:48 cols with values from motor_12_test
 # for ( i in seq_along( motor_12_test ) ){
 #   
@@ -199,10 +207,11 @@ write_csv(hur_piv_fin, "counting_fin.csv")
 #                        consec_12 = tdc(time_to_12))
 # summary(count_12test)
 # attr(count_12test, "tcount")
+counting_fin <- hur_piv_fin
 
 lapply(counting_fin, unique)
 
-counting_fin <- read_csv("counting_fin.csv")
+# counting_fin <- read_csv("counting_fin.csv")
  
 cox_1 <- coxph( Surv( tstart, Hour, motor ) ~  factor(backup) + age +
                   factor(bridgecrane) + factor(servo) + factor(gear)  + 
@@ -211,7 +220,7 @@ cox_1 <- coxph( Surv( tstart, Hour, motor ) ~  factor(backup) + age +
 summary(cox_1)
 
  cox_2 <- coxph( Surv( tstart, Hour, motor ) ~  age +
-                  slope + factor(Time_at12), data = counting_fin)
+                  slope + factor(Time_at12) + factor(trashrack), data = counting_fin)
 summary(cox_2)
 
 counting_fin %>% count(motor)
