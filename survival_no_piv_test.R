@@ -217,7 +217,7 @@ counting_fin <- read_csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/b
  
 cox_1 <- coxph( Surv( tstart, Hour, motor ) ~  factor(backup) + age +
                   factor(bridgecrane) + factor(servo) + factor(gear) + slope + factor(elevation) + 
-                  factor(Time_at12) + factor(motor_on), data = counting_fin)
+                  factor(Time_at12) + factor(trashrack), data = counting_fin)
 summary(cox_1)
 
 
@@ -226,7 +226,7 @@ cox_3 <- coxph( Surv( tstart, Hour, motor ) ~  age + slope +
 summary(cox_3)
 
  cox_2 <- coxph( Surv( tstart, Hour, motor ) ~  age +
-                  slope, data = counting_fin)
+                  slope + factor(trashrack), data = counting_fin)
 summary(cox_2)
 
 (exp(cox_2$coefficients)-1)*100
@@ -240,8 +240,9 @@ check_motor <- counting_fin[ counting_fin$motor == 1, ]
 
 ## Variable selection
 full.model <- coxph(Surv( tstart, Hour, motor ) ~  factor(backup) + age +
-                       factor(bridgecrane) + factor(servo) + factor(gear) + slope + factor(elevation) + 
-                       factor(Time_at12) + factor(motor_on), data = counting_fin)
+                       factor(bridgecrane) + factor(servo) + factor(gear) + slope + 
+                      factor(elevation) + factor(Time_at12) + factor(motor_on) + 
+                      factor(trashrack), data = counting_fin)
 
 empty.model <- coxph(Surv( tstart, Hour, motor ) ~ factor(Time_at12), data = counting_fin)
 
@@ -262,6 +263,7 @@ visreg(cox_1, "slope", xlab = "age", ylab = "partial residuals",gg = TRUE, band 
 visreg(cox_1, "age", xlab = "age", ylab = "partial residuals",gg = TRUE, band = FALSE) +  
   geom_smooth(col = "red", fill = "red") + 
   theme_bw() 
+
 
 # Check PH
 pump.ph.zph <- cox.zph(cox_1, transform = "identity")
