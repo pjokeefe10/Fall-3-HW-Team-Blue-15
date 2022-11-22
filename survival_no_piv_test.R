@@ -174,7 +174,7 @@ hur_piv_fin <- hur_piv %>% na.omit()
 
 hur_piv_fin$motor <- un_htf
 
-write_csv(hur_piv_fin, "counting_fin.csv")
+write_csv(hur_piv_fin, "C:/Fall 3 HW Team Blue 15/Fall-3-HW-Team-Blue-15/Fall-3-HW-Team-Blue-15/counting_fin.csv")
 
 # #Replace the h1:48 cols with values from motor_12_test
 # for ( i in seq_along( motor_12_test ) ){
