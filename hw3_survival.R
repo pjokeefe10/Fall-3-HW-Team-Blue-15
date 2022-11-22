@@ -166,7 +166,7 @@ lapply(counting_fin, unique)
 full.model <- coxph(Surv( tstart, Hour, motor ) ~  factor(backup) + age +
                       factor(bridgecrane) + factor(servo) + factor(gear) + slope + factor(elevation) + 
                       factor(Time_at12) + factor(motor_on), data = counting_fin)
-empty.model <- coxph(Surv( tstart, Hour, motor ) ~ factor(Time_at12), data = counting_fin)
+empty.model <- coxph(Surv( tstart, Hour, motor ) ~ 1, data = counting_fin)
 alpha.f=0.03 #set pvalue
 
 #forward
@@ -184,17 +184,16 @@ alpha.f=0.03 #set pvalue
 #backward
 back.model <- step(full.model, direction = "backward",
                    k = qchisq(alpha.f, 1, lower.tail = FALSE))
+summary(back.model)
 
 ## BUILD MODELS ##
 #model w/ variables from backward var selection
-cox_1 <- coxph(Surv(tstart, Hour, motor) ~ age + factor(servo) + slope,
-               data = counting_fin)
+# cox_1 <- coxph(Surv(tstart, Hour, motor) ~ age + factor(servo) + slope,
+#                data = counting_fin)
 cox_2 <- coxph(Surv(tstart, Hour, motor) ~ age + slope,
                data = counting_fin)
 summary(cox_2)
-
-p <- car::Anova(cox_2, test = "LR", type = "III")
-write.csv(p, file= "C:/Users/kat4538/Documents/MSA/FALL 3/survival analysis/hw 3/pvalue.csv")
+summary(cox_2)[7][1]
 
 ## ASSUMPTIONS ##
 # linearity
