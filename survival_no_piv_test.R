@@ -78,7 +78,7 @@ hurricane$motor <- ifelse(hurricane$reason == 2, 1, 0) # create target variable 
 table(hurricane$trashrack, hurricane$motor)
 
 #Add Trashrack = 1 for one of the motor failure pumps
-hurricane[which(hurricane$ID == 432), 'trashrack'] <- 1
+#hurricane[which(hurricane$ID == 432), 'trashrack'] <- 1
 
 #Recheck for separation concerns
 table(hurricane$trashrack, hurricane$motor)
@@ -217,19 +217,21 @@ counting_fin <- read_csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/b
  
 cox_1 <- coxph( Surv( tstart, Hour, motor ) ~  factor(backup) + age +
                   factor(bridgecrane) + factor(servo) + factor(gear) + slope + factor(elevation) + 
-                  factor(Time_at12) + factor(trashrack), data = counting_fin)
+                  factor(Time_at12) + factor(trashrack), data = hur_piv_fin)
 summary(cox_1)
 
 
 cox_3 <- coxph( Surv( tstart, Hour, motor ) ~  age + slope + 
-                  factor(Time_at12), data = counting_fin)
+                  factor(Time_at12), data = hur_piv_fin)
 summary(cox_3)
 
  cox_2 <- coxph( Surv( tstart, Hour, motor ) ~  age +
-                  slope + factor(trashrack), data = counting_fin)
-summary(cox_2)
+                  slope, data = hur_piv_fin)
+summary(cox_2)[7][1]
 
 (exp(cox_2$coefficients)-1)*100
+cox_2$coefficients
+
 
 counting_fin %>% count(motor)
 
@@ -241,18 +243,18 @@ check_motor <- counting_fin[ counting_fin$motor == 1, ]
 ## Variable selection
 full.model <- coxph(Surv( tstart, Hour, motor ) ~  factor(backup) + age +
                        factor(bridgecrane) + factor(servo) + factor(gear) + slope + 
-                      factor(elevation) + factor(Time_at12) + factor(motor_on) + 
-                      factor(trashrack), data = counting_fin)
+                      factor(elevation) + factor(Time_at12) + factor(motor_on), data = hur_piv_fin)
 
-empty.model <- coxph(Surv( tstart, Hour, motor ) ~ factor(Time_at12), data = counting_fin)
+empty.model <- coxph(Surv( tstart, Hour, motor ) ~ 1, data = hur_piv_fin)
 
 alpha.f=0.03
-for.model <- step(full.model, 
+back.model <- step(full.model, 
                   scope = list(lower=formula(empty.model), 
                                upper=formula(full.model)), 
                   direction = "backward", k = qchisq(alpha.f, 1, lower.tail = FALSE))
 
-summary(for.model)
+summary(back.model)
+(exp(back.model$coefficients)-1)*100
 
 ## Check assumptions
 # Check linearity
