@@ -20,6 +20,7 @@ library(nnet)
 library(NeuralNetTools)
 library(iml)
 library(e1071)
+library(caret)
 
 # read in data
 train <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main/insurance_t.csv")
@@ -158,85 +159,16 @@ train_df <- train_df %>%
          s_CRSCORE = scale(CRSCORE)
          )
 
-# optimize tuning
-tune_grid <- expand.grid(
-  .size = c(0:5),
-  .decay = c(0,  .025, .05, .1)
-)
-set.seed(444)
-
-nn_bank_caret <- train(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
-                       + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
-                         s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
-                         DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
-                         BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
-                       + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
-                       , data = train_df,
-                       method = "nnet",
-                       tuneGrid = tune_grid,
-                       trControl = trainControl(method = 'cv', number = 10),
-                       trace = FALSE, linout = F)
-nn_bank_caret$bestTune
-
-# then use best tune
-
-set.seed(444)
-nn_bank <- nnet(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
-                + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
-                  s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
-                  DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
-                  BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
-                + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
-, data = train_df, size = 5, decay = 0, linout = F)
-
-# determine ROC and accuracy
-
-
-############## Naive Bayes ###############################################################
-
-# tuning parameters
-tune_grid <- expand.grid(
-  usekernel = c(TRUE, FALSE),
-  fL = c(0, 0.5, 1), adjust = c(TRUE, FALSE)
-)
-
-set.seed(444)
-nb_bank_caret_nb <- train(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
-                          + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
-                            s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
-                            DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
-                            BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
-                          + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE, 
-                          data = train_df,
-                       method = "nb",
-                       tuneGrid = tune_grid,
-                       trControl = trainControl(method = 'cv', # Using 10-fold cross-validation
-                                                number = 10))
-
-nb_bank_caret_nb$bestTune
-# now bulid nb
-
-set.seed(444)
-nb_bank <- naiveBayes(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
-                      + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
-                        s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
-                        DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
-                        BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
-                      + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
-                      , data = train_df, laplace = 0, usekernel = FALSE)
-
-# determine ROC and accuracy
-
-########### LIME and Shapely #############################################################################
+### Even more preprocessing
 
 train_sub <- subset(train_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DEPAMT , s_CHECKS , s_NSFAMT , s_PHONE 
                                          , s_TELLER , s_SAVBAL , s_ATMAMT , s_POS , s_POSAMT , s_CDBAL , s_IRABAL , s_INVBAL ,
                                          s_MMBAL , s_CCBAL , s_INCOME , s_LORES , s_HMVAL , s_AGE , s_CRSCORE ,
                                          DDA , DIRDEP , NSF , ATM , CD , IRA , INV , MM , CC , CCPURC , SDB , INAREA ,
                                          BRANCH , FLAG_NA_ACCTAGE , FLAG_NA_PHONE , FLAG_NA_POS  , FLAG_NA_POSAMT , FLAG_NA_INVBAL   
-                                         , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE ))
-# FLAG_NA_CRSCOR was removed?
-# need to convert all scaled vars into numeric?
+                                         , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE, FLAG_NA_CRSCORE ))
+
+# need to convert all scaled vars into numeric
 
 train_sub <- train_sub %>%
   mutate(s_ACCTAGE = as.numeric(s_ACCTAGE),
@@ -270,22 +202,210 @@ train_sub <- train_sub %>%
          FLAG_NA_INCOME = as.factor(FLAG_NA_INCOME),
          FLAG_NA_LORES = as.factor(FLAG_NA_LORES),
          FLAG_NA_HMVAL = as.factor(FLAG_NA_HMVAL),
-         FLAG_NA_AGE = as.factor(FLAG_NA_AGE)
+         FLAG_NA_AGE = as.factor(FLAG_NA_AGE),
+         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE)
   )
 
-nn_pred <- Predictor$new(nn_bank,
-                             data = train_sub[,-1],
-                             y = train_sub$INS,
-                             type = "response")
+################################# Repeat on validation dataset
+# need a dataframe structure
+valid_df <- as.data.frame(valid)
+# also standardize continuous vars
+valid_df <- valid_df %>%
+  mutate(s_ACCTAGE = scale(ACCTAGE),
+         s_DDABAL = scale(DDABAL),
+         s_DEP = scale(DEP),
+         s_DEPAMT = scale(DEPAMT),
+         s_CHECKS = scale(CHECKS),
+         s_NSFAMT = scale(NSFAMT),
+         s_PHONE = scale(PHONE),
+         s_TELLER = scale(TELLER),
+         s_SAVBAL = scale(SAVBAL),
+         s_ATMAMT = scale(ATMAMT),
+         s_POS = scale(POS),
+         s_POSAMT = scale(POSAMT),
+         s_CDBAL = scale(CDBAL),
+         s_IRABAL = scale(IRABAL),
+         s_INVBAL = scale(INVBAL),
+         s_MMBAL = scale(MMBAL),
+         s_CCBAL = scale(CCBAL),
+         s_INCOME = scale(INCOME),
+         s_LORES = scale(LORES),
+         s_HMVAL = scale(HMVAL),
+         s_AGE = scale(AGE),
+         s_CRSCORE = scale(CRSCORE)
+  )
 
+
+valid_sub <- subset(valid_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DEPAMT , s_CHECKS , s_NSFAMT , s_PHONE 
+                                         , s_TELLER , s_SAVBAL , s_ATMAMT , s_POS , s_POSAMT , s_CDBAL , s_IRABAL , s_INVBAL ,
+                                         s_MMBAL , s_CCBAL , s_INCOME , s_LORES , s_HMVAL , s_AGE , s_CRSCORE ,
+                                         DDA , DIRDEP , NSF , ATM , CD , IRA , INV , MM , CC , CCPURC , SDB , INAREA ,
+                                         BRANCH , FLAG_NA_ACCTAGE , FLAG_NA_PHONE , FLAG_NA_POS  , FLAG_NA_POSAMT , FLAG_NA_INVBAL   
+                                         , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE, FLAG_NA_CRSCORE ))
+
+valid_sub <- valid_sub %>%
+  mutate(s_ACCTAGE = as.numeric(s_ACCTAGE),
+         s_DDABAL = as.numeric(s_DDABAL),
+         s_DEP = as.numeric(s_DEP),
+         s_DEPAMT = as.numeric(s_DEPAMT),
+         s_CHECKS = as.numeric(s_CHECKS),
+         s_NSFAMT = as.numeric(s_NSFAMT),
+         s_PHONE = as.numeric(s_PHONE),
+         s_TELLER = as.numeric(s_TELLER),
+         s_SAVBAL = as.numeric(s_SAVBAL),
+         s_ATMAMT = as.numeric(s_ATMAMT),
+         s_POS = as.numeric(s_POS),
+         s_POSAMT = as.numeric(s_POSAMT),
+         s_CDBAL = as.numeric(s_CDBAL),
+         s_IRABAL = as.numeric(s_IRABAL),
+         s_INVBAL = as.numeric(s_INVBAL),
+         s_MMBAL = as.numeric(s_MMBAL),
+         s_CCBAL = as.numeric(s_CCBAL),
+         s_INCOME = as.numeric(s_INCOME),
+         s_LORES = as.numeric(s_LORES),
+         s_HMVAL = as.numeric(s_HMVAL),
+         s_AGE = as.numeric(s_AGE),
+         s_CRSCORE = as.numeric(s_CRSCORE),
+         FLAG_NA_ACCTAGE = as.factor(FLAG_NA_ACCTAGE),
+         FLAG_NA_PHONE= as.factor(FLAG_NA_PHONE),
+         FLAG_NA_POS = as.factor(FLAG_NA_POS),
+         FLAG_NA_POSAMT = as.factor(FLAG_NA_POSAMT),
+         FLAG_NA_INVBAL = as.factor(FLAG_NA_INVBAL),
+         FLAG_NA_CCBAL = as.factor(FLAG_NA_CCBAL),
+         FLAG_NA_INCOME = as.factor(FLAG_NA_INCOME),
+         FLAG_NA_LORES = as.factor(FLAG_NA_LORES),
+         FLAG_NA_HMVAL = as.factor(FLAG_NA_HMVAL),
+         FLAG_NA_AGE = as.factor(FLAG_NA_AGE),
+         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE)
+  )
+
+
+# optimize tuning
+# tune_grid <- expand.grid(
+#   .size = c(0:5),
+#   .decay = c(.7, .75, .8, .85, .9)
+# )
+# set.seed(444)
+# 
+# nn_bank_caret <- train(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE
+#                        + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+#                          s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+#                          DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+#                          BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL
+#                        + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE
+#                        , data = train_df,
+#                        method = "nnet",
+#                        tuneGrid = tune_grid,
+#                       trControl = trainControl(method = 'cv', number = 10),
+#                       trace = FALSE, linout = F)
+# nn_bank_caret$bestTune
+
+# then use best tune
+
+set.seed(444)
+nn_bank <- nnet(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
+                + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+                  s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+                  DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+                  BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
+                + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
+, data = train_sub, size = 1, decay = .1, linout = F)
+
+# 0.7429, 2 , .8
+# determine ROC and accuracy on validation
+
+#create preditions
+nn_pred <- predict(nn_bank, valid_sub, type="class")
+
+#confusion matrix
+nn_cMatrix <- table(nn_pred, valid_sub$INS)
+
+confusionMatrix(nn_cMatrix)
+
+############## Naive Bayes ###############################################################
+
+# tuning parameters
+# tune_grid <- expand.grid(
+#   usekernel = c(TRUE, FALSE),
+#   fL = c(0, .25, 0.5,  .75, 1), adjust = c(TRUE, FALSE)
+# )
+# 
+# set.seed(444)
+# nb_bank_caret_nb <- train(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE
+#                           + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+#                             s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+#                             DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+#                             BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL
+#                           + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE,
+#                           data = train_df,
+#                        method = "nb",
+#                        tuneGrid = tune_grid,
+#                        trControl = trainControl(method = 'cv', # Using 10-fold cross-validation
+#                                                 number = 10))
+# 
+# nb_bank_caret_nb$bestTune
+# # now bulid nb
+
+set.seed(444)
+nb_bank <- naiveBayes(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
+                      + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+                        s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+                        DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+                        BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
+                      + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
+                      , data = train_sub, laplace = 0, usekernel = FALSE, adjust = FALSE)
+
+# determine ROC and accuracy on validation
+
+#create preditions
+nb_pred <- predict(nb_bank, valid_sub, type="class")
+
+#confusion matrix
+nb_cMatrix <- table(nb_pred, valid_sub$INS)
+
+confusionMatrix(nb_cMatrix)
+
+############ variable importance ###########################################################################
+
+### NN
+TrainingParameters <- trainControl(method = "repeatedcv", number = 10, repeats=10)
+model <- train(INS~., data = train_sub,
+               method = "nnet",
+               trControl= TrainingParameters,
+               preProcess=c("scale","center"),
+               na.action = na.omit, linout = F )
+
+
+
+nn_pred <- Predictor$new(model,
+                         data = train_sub[,-1],
+                         y = train_sub$INS,
+                         type = "class")
+
+plot(FeatureImp$new(model, loss = "mse"))
+
+### NB
+nb_pred <- Predictor$new(nb_bank,
+                         data = train_sub[,-1],
+                         y = train_sub$INS,
+                         type = "class")
+
+
+
+########### LIME and Shapely #############################################################################
 # LIME
 point <- 732
-lime.explain <- LocalModel$new(nn_pred,
-                               x.interest = train_df[point,-1],
+lime.explain_nn <- LocalModel$new(nn_pred,
+                               x.interest = train_sub[point,-1],
                                k = 5)
-plot(lime.explain)
+plot(lime.explain_nn)
+
+lime.explain_nb <- LocalModel$new(nb_pred,
+                               x.interest = train_sub[point,-1],
+                               k = 5)
+plot(lime.explain_nb)
 
 # Shapely
 shap <- Shapley$new(nn_pred,
-                    x.interest = train_df[point,-1])
+                    x.interest = train_sub[point,-1])
 shap$plot()
