@@ -368,21 +368,30 @@ confusionMatrix(nb_cMatrix)
 ############ variable importance ###########################################################################
 
 ### NN
-TrainingParameters <- trainControl(method = "repeatedcv", number = 10, repeats=10)
-model <- train(INS~., data = train_sub,
-               method = "nnet",
-               trControl= TrainingParameters,
-               preProcess=c("scale","center"),
-               na.action = na.omit, linout = F )
+# TrainingParameters <- trainControl(method = "repeatedcv", number = 10, repeats=10)
+# model <- train(INS~., data = train_sub,
+#                method = "nnet",
+#                trControl= TrainingParameters,
+#                preProcess=c("scale","center"),
+#                na.action = na.omit, linout = F )
 
 
 
-nn_pred <- Predictor$new(model,
+nn_pred <- Predictor$new(nn_bank,
                          data = train_sub[,-1],
                          y = train_sub$INS,
-                         type = "class")
+                         type = "class", class = train_sub$INS)
 
-plot(FeatureImp$new(model, loss = "mse"))
+# plot(FeatureImp$new(nn_pred, loss = "mse"))
+
+# ice_plot <- FeatureEffects$new(nn_pred,
+#                                method = "ice")
+# 
+# ice_plot$plot(c("s_AGE"))
+
+# pd_plot <- FeatureEffects$new(nn_pred,
+#                               method = "pdp")
+# pd_plot$plot(c("s_AGE"))
 
 ### NB
 nb_pred <- Predictor$new(nb_bank,
