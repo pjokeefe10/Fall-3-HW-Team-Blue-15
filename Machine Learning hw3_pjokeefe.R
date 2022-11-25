@@ -1,0 +1,480 @@
+# libraries
+library(tidyverse)
+library(ggplot2)
+library(UsingR)
+library(car)
+library(stats)
+library(DescTools)
+library(AppliedPredictiveModeling)
+library(lmtest)
+library(vcdExtra)
+library(InformationValue)
+library(naniar)
+library(dplyr)
+library(caret)
+library(leaps)
+library(mgcv)
+library(ROCR)
+library(pROC)
+library(nnet)
+library(NeuralNetTools)
+library(iml)
+library(e1071)
+library(caret)
+
+# read in data
+train <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main/insurance_t.csv")
+valid <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main/insurance_v.csv")
+
+########################################## imputation from phase 1 ###############################################################
+
+train$INS <- factor(train$INS)
+
+
+# coerce all binary and categorical to factor (16 cols)
+
+#convert all categorical var to factors
+col_names <- names(train)[c(2,7:8,12,14,18,20,22,24,26:27,29:30,36,38)]
+train[,col_names] <- lapply(train[,col_names] , factor)
+
+# create binary flag col for all variables
+flag  = train %>%
+  mutate(across(everything(), ~ is.na(.x), 
+                .names = 'FLAG_NA_{.col}'))
+
+
+# then drop col if there are no missing values
+flag_sub = flag[39:ncol(flag)][colSums(abs(flag[39:ncol(flag)]), na.rm = TRUE) > 0]
+
+# then drop all cols that are not numerical (because we only want the flag for numerical variables)
+drop_flag = c('FLAG_NA_DDA','FLAG_NA_DIRDEP','FLAG_NA_NSF','FLAG_NA_SAV'
+              ,'FLAG_NA_ATM','FLAG_NA_CD','FLAG_NA_IRA','FLAG_NA_INV','FLAG_NA_MM','FLAG_NA_MMCRED',
+              'FLAG_NA_CC','FLAG_NA_CCPURC','FLAG_NA_SDB','FLAG_NA_INAREA','FLAG_NA_INS', 'FLAG_NA_BRANCH')
+drop_vars <- names(flag_sub) %in% drop_flag
+
+flag_sub_sub <- flag_sub[!drop_vars]
+
+# add flags back to original data frame
+
+train <- cbind(train, flag_sub_sub)
+
+# actual impuration
+# mode for categorical var
+calc_mode <- function(x){
+  
+  # List the distinct / unique values
+  distinct_values <- unique(x)
+  
+  # Count the occurrence of each distinct value
+  distinct_tabulate <- tabulate(match(x, distinct_values))
+  
+  # Return the value with the highest occurrence
+  distinct_values[which.max(distinct_tabulate)]
+}
+
+train$INV <- if_else(is.na(train$INV), calc_mode(train$INV), train$INV)
+train$CC <- if_else(is.na(train$CC), calc_mode(train$CC), train$CC)
+train$CCPURC <- if_else(is.na(train$CCPURC), calc_mode(train$CCPURC), train$CCPURC)
+
+# median for continuous var
+train <- train %>% 
+  mutate_if(is.numeric, function(x) ifelse(is.na(x), median(x, na.rm = T), x))
+
+# roll up categories
+train$MMCRED <- as.character(train$MMCRED)
+train$MMCRED[which(train$MMCRED > 2)] <- "3+" # new category for 3+ money market credits
+
+###################################################### run the same thing, but on validation
+
+valid$INS <- factor(valid$INS)
+
+
+# coerce all binary and categorical to factor (16 cols)
+
+#convert all categorical var to factors
+col_names <- names(valid)[c(2,7:8,12,14,18,20,22,24,26:27,29:30,36,38)]
+valid[,col_names] <- lapply(valid[,col_names] , factor)
+
+# create binary flag col for all variables
+flag  = valid %>%
+  mutate(across(everything(), ~ is.na(.x), 
+                .names = 'FLAG_NA_{.col}'))
+
+
+# then drop col if there are no missing values
+flag_sub = flag[39:ncol(flag)][colSums(abs(flag[39:ncol(flag)]), na.rm = TRUE) > 0]
+
+# then drop all cols that are not numerical (because we only want the flag for numerical variables)
+drop_flag = c('FLAG_NA_DDA','FLAG_NA_DIRDEP','FLAG_NA_NSF','FLAG_NA_SAV'
+              ,'FLAG_NA_ATM','FLAG_NA_CD','FLAG_NA_IRA','FLAG_NA_INV','FLAG_NA_MM','FLAG_NA_MMCRED',
+              'FLAG_NA_CC','FLAG_NA_CCPURC','FLAG_NA_SDB','FLAG_NA_INAREA','FLAG_NA_INS', 'FLAG_NA_BRANCH')
+drop_vars <- names(flag_sub) %in% drop_flag
+
+flag_sub_sub <- flag_sub[!drop_vars]
+
+# add flags back to original data frame
+
+valid <- cbind(valid, flag_sub_sub)
+
+# actual imputation
+
+valid$INV <- if_else(is.na(valid$INV), calc_mode(valid$INV), valid$INV)
+valid$CC <- if_else(is.na(valid$CC), calc_mode(valid$CC), valid$CC)
+valid$CCPURC <- if_else(is.na(valid$CCPURC), calc_mode(valid$CCPURC), valid$CCPURC)
+
+# median for continuous var
+valid <- valid %>% 
+  mutate_if(is.numeric, function(x) ifelse(is.na(x), median(x, na.rm = T), x))
+
+# roll up categories
+valid$MMCRED <- as.character(valid$MMCRED)
+valid$MMCRED[which(valid$MMCRED > 2)] <- "3+" # new category for 3+ money market credits
+
+############## Neural Network ###########################################################
+# need a dataframe structure
+train_df <- as.data.frame(train)
+# also standardize continuous vars
+train_df <- train_df %>%
+  mutate(s_ACCTAGE = scale(ACCTAGE),
+         s_DDABAL = scale(DDABAL),
+         s_DEP = scale(DEP),
+         s_DEPAMT = scale(DEPAMT),
+         s_CHECKS = scale(CHECKS),
+         s_NSFAMT = scale(NSFAMT),
+         s_PHONE = scale(PHONE),
+         s_TELLER = scale(TELLER),
+         s_SAVBAL = scale(SAVBAL),
+         s_ATMAMT = scale(ATMAMT),
+         s_POS = scale(POS),
+         s_POSAMT = scale(POSAMT),
+         s_CDBAL = scale(CDBAL),
+         s_IRABAL = scale(IRABAL),
+         s_INVBAL = scale(INVBAL),
+         s_MMBAL = scale(MMBAL),
+         s_CCBAL = scale(CCBAL),
+         s_INCOME = scale(INCOME),
+         s_LORES = scale(LORES),
+         s_HMVAL = scale(HMVAL),
+         s_AGE = scale(AGE),
+         s_CRSCORE = scale(CRSCORE)
+  )
+
+### Even more preprocessing
+
+train_sub <- subset(train_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DEPAMT , s_CHECKS , s_NSFAMT , s_PHONE 
+                                         , s_TELLER , s_SAVBAL , s_ATMAMT , s_POS , s_POSAMT , s_CDBAL , s_IRABAL , s_INVBAL ,
+                                         s_MMBAL , s_CCBAL , s_INCOME , s_LORES , s_HMVAL , s_AGE , s_CRSCORE ,
+                                         DDA , DIRDEP , NSF , ATM , CD , IRA , INV , MM , CC , CCPURC , SDB , INAREA ,
+                                         BRANCH , FLAG_NA_ACCTAGE , FLAG_NA_PHONE , FLAG_NA_POS  , FLAG_NA_POSAMT , FLAG_NA_INVBAL   
+                                         , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE, FLAG_NA_CRSCORE ))
+
+# need to convert all scaled vars into numeric
+
+train_sub <- train_sub %>%
+  mutate(s_ACCTAGE = as.numeric(s_ACCTAGE),
+         s_DDABAL = as.numeric(s_DDABAL),
+         s_DEP = as.numeric(s_DEP),
+         s_DEPAMT = as.numeric(s_DEPAMT),
+         s_CHECKS = as.numeric(s_CHECKS),
+         s_NSFAMT = as.numeric(s_NSFAMT),
+         s_PHONE = as.numeric(s_PHONE),
+         s_TELLER = as.numeric(s_TELLER),
+         s_SAVBAL = as.numeric(s_SAVBAL),
+         s_ATMAMT = as.numeric(s_ATMAMT),
+         s_POS = as.numeric(s_POS),
+         s_POSAMT = as.numeric(s_POSAMT),
+         s_CDBAL = as.numeric(s_CDBAL),
+         s_IRABAL = as.numeric(s_IRABAL),
+         s_INVBAL = as.numeric(s_INVBAL),
+         s_MMBAL = as.numeric(s_MMBAL),
+         s_CCBAL = as.numeric(s_CCBAL),
+         s_INCOME = as.numeric(s_INCOME),
+         s_LORES = as.numeric(s_LORES),
+         s_HMVAL = as.numeric(s_HMVAL),
+         s_AGE = as.numeric(s_AGE),
+         s_CRSCORE = as.numeric(s_CRSCORE),
+         FLAG_NA_ACCTAGE = as.factor(FLAG_NA_ACCTAGE),
+         FLAG_NA_PHONE= as.factor(FLAG_NA_PHONE),
+         FLAG_NA_POS = as.factor(FLAG_NA_POS),
+         FLAG_NA_POSAMT = as.factor(FLAG_NA_POSAMT),
+         FLAG_NA_INVBAL = as.factor(FLAG_NA_INVBAL),
+         FLAG_NA_CCBAL = as.factor(FLAG_NA_CCBAL),
+         FLAG_NA_INCOME = as.factor(FLAG_NA_INCOME),
+         FLAG_NA_LORES = as.factor(FLAG_NA_LORES),
+         FLAG_NA_HMVAL = as.factor(FLAG_NA_HMVAL),
+         FLAG_NA_AGE = as.factor(FLAG_NA_AGE),
+         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE)
+  )
+
+################################# Repeat on validation dataset
+# need a dataframe structure
+valid_df <- as.data.frame(valid)
+# also standardize continuous vars
+valid_df <- valid_df %>%
+  mutate(s_ACCTAGE = scale(ACCTAGE),
+         s_DDABAL = scale(DDABAL),
+         s_DEP = scale(DEP),
+         s_DEPAMT = scale(DEPAMT),
+         s_CHECKS = scale(CHECKS),
+         s_NSFAMT = scale(NSFAMT),
+         s_PHONE = scale(PHONE),
+         s_TELLER = scale(TELLER),
+         s_SAVBAL = scale(SAVBAL),
+         s_ATMAMT = scale(ATMAMT),
+         s_POS = scale(POS),
+         s_POSAMT = scale(POSAMT),
+         s_CDBAL = scale(CDBAL),
+         s_IRABAL = scale(IRABAL),
+         s_INVBAL = scale(INVBAL),
+         s_MMBAL = scale(MMBAL),
+         s_CCBAL = scale(CCBAL),
+         s_INCOME = scale(INCOME),
+         s_LORES = scale(LORES),
+         s_HMVAL = scale(HMVAL),
+         s_AGE = scale(AGE),
+         s_CRSCORE = scale(CRSCORE)
+  )
+
+
+valid_sub <- subset(valid_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DEPAMT , s_CHECKS , s_NSFAMT , s_PHONE 
+                                         , s_TELLER , s_SAVBAL , s_ATMAMT , s_POS , s_POSAMT , s_CDBAL , s_IRABAL , s_INVBAL ,
+                                         s_MMBAL , s_CCBAL , s_INCOME , s_LORES , s_HMVAL , s_AGE , s_CRSCORE ,
+                                         DDA , DIRDEP , NSF , ATM , CD , IRA , INV , MM , CC , CCPURC , SDB , INAREA ,
+                                         BRANCH , FLAG_NA_ACCTAGE , FLAG_NA_PHONE , FLAG_NA_POS  , FLAG_NA_POSAMT , FLAG_NA_INVBAL   
+                                         , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE, FLAG_NA_CRSCORE ))
+
+valid_sub <- valid_sub %>%
+  mutate(s_ACCTAGE = as.numeric(s_ACCTAGE),
+         s_DDABAL = as.numeric(s_DDABAL),
+         s_DEP = as.numeric(s_DEP),
+         s_DEPAMT = as.numeric(s_DEPAMT),
+         s_CHECKS = as.numeric(s_CHECKS),
+         s_NSFAMT = as.numeric(s_NSFAMT),
+         s_PHONE = as.numeric(s_PHONE),
+         s_TELLER = as.numeric(s_TELLER),
+         s_SAVBAL = as.numeric(s_SAVBAL),
+         s_ATMAMT = as.numeric(s_ATMAMT),
+         s_POS = as.numeric(s_POS),
+         s_POSAMT = as.numeric(s_POSAMT),
+         s_CDBAL = as.numeric(s_CDBAL),
+         s_IRABAL = as.numeric(s_IRABAL),
+         s_INVBAL = as.numeric(s_INVBAL),
+         s_MMBAL = as.numeric(s_MMBAL),
+         s_CCBAL = as.numeric(s_CCBAL),
+         s_INCOME = as.numeric(s_INCOME),
+         s_LORES = as.numeric(s_LORES),
+         s_HMVAL = as.numeric(s_HMVAL),
+         s_AGE = as.numeric(s_AGE),
+         s_CRSCORE = as.numeric(s_CRSCORE),
+         FLAG_NA_ACCTAGE = as.factor(FLAG_NA_ACCTAGE),
+         FLAG_NA_PHONE= as.factor(FLAG_NA_PHONE),
+         FLAG_NA_POS = as.factor(FLAG_NA_POS),
+         FLAG_NA_POSAMT = as.factor(FLAG_NA_POSAMT),
+         FLAG_NA_INVBAL = as.factor(FLAG_NA_INVBAL),
+         FLAG_NA_CCBAL = as.factor(FLAG_NA_CCBAL),
+         FLAG_NA_INCOME = as.factor(FLAG_NA_INCOME),
+         FLAG_NA_LORES = as.factor(FLAG_NA_LORES),
+         FLAG_NA_HMVAL = as.factor(FLAG_NA_HMVAL),
+         FLAG_NA_AGE = as.factor(FLAG_NA_AGE),
+         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE)
+  )
+
+
+# optimize tuning
+# tune_grid <- expand.grid(
+#   .size = c(0:5),
+#   .decay = c(.7, .75, .8, .85, .9)
+# )
+# set.seed(444)
+# 
+# nn_bank_caret <- train(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE
+#                        + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+#                          s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+#                          DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+#                          BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL
+#                        + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE
+#                        , data = train_df,
+#                        method = "nnet",
+#                        tuneGrid = tune_grid,
+#                       trControl = trainControl(method = 'cv', number = 10),
+#                       trace = FALSE, linout = F)
+# nn_bank_caret$bestTune
+
+# then use best tune
+
+set.seed(444)
+nn_bank <- nnet(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
+                + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+                  s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+                  DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+                  BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
+                + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
+                , data = train_sub, size = 1, decay = .1, linout = F)
+
+# 0.7429, 2 , .8
+
+# Training accuracy metrics
+train_p <- train
+
+train_p$p_hat <- predict(nn_bank, type = "raw")
+
+p1 <- train_p$p_hat[train_p$INS == 1]
+p0 <- train_p$p_hat[train_p$INS == 0]
+
+
+coef_discrim <- mean(p1) - mean(p0)
+
+ggplot(train_p, aes(p_hat, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for Neural Network",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
+
+#ROC curve
+pred.rf.bank <- prediction(train_p$p_hat, factor(train_p$INS)) 
+perf.rf.bank <- performance(pred.rf.bank, measure = "tpr", x.measure = "fpr")
+plot(perf.rf.bank, lwd = 3, col = "dodgerblue3", main = paste0("Nearual Network ROC Plot (AUC = ", round(AUROC(train_p$INS, train_p$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+# determine ROC and accuracy on validation
+valid_p <- valid_sub
+
+valid_p$p_hat <- predict(nn_bank, newdata = valid_p, type = "raw", )
+
+p1 <- valid_p$p_hat[valid_p$INS == 1]
+p0 <- valid_p$p_hat[valid_p$INS == 0]
+
+
+coef_discrim <- mean(p1) - mean(p0)
+
+ggplot(valid_p, aes(p_hat, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for Neural Network",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
+
+#ROC curve
+pred.rf.bank <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
+perf.rf.bank <- performance(pred.rf.bank, measure = "tpr", x.measure = "fpr")
+plot(perf.rf.bank, lwd = 3, col = "dodgerblue3", main = paste0("Nearual Network ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+
+#create preditions
+nn_pred <- predict(nn_bank, valid_sub, type="class")
+
+#confusion matrix
+nn_cMatrix <- table(nn_pred, valid_sub$INS)
+
+confusionMatrix(nn_cMatrix)
+
+############## Naive Bayes ###############################################################
+
+# tuning parameters
+# tune_grid <- expand.grid(
+#   usekernel = c(TRUE, FALSE),
+#   fL = c(0, .25, 0.5,  .75, 1), adjust = c(TRUE, FALSE)
+# )
+# 
+# set.seed(444)
+# nb_bank_caret_nb <- train(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE
+#                           + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+#                             s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+#                             DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+#                             BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL
+#                           + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE,
+#                           data = train_df,
+#                        method = "nb",
+#                        tuneGrid = tune_grid,
+#                        trControl = trainControl(method = 'cv', # Using 10-fold cross-validation
+#                                                 number = 10))
+# 
+# nb_bank_caret_nb$bestTune
+# # now bulid nb
+
+set.seed(444)
+nb_bank <- naiveBayes(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
+                      + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
+                        s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
+                        DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
+                        BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
+                      + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
+                      , data = train_sub, laplace = 0, usekernel = FALSE, adjust = FALSE)
+
+# determine ROC and accuracy on validation
+
+#create preditions
+nb_pred <- predict(nb_bank, valid_sub, type="class")
+
+#confusion matrix
+nb_cMatrix <- table(nb_pred, valid_sub$INS)
+
+confusionMatrix(nb_cMatrix)
+
+############ variable importance ###########################################################################
+
+### NN
+# TrainingParameters <- trainControl(method = "repeatedcv", number = 10, repeats=10)
+# model <- train(INS~., data = train_sub,
+#                method = "nnet",
+#                trControl= TrainingParameters,
+#                preProcess=c("scale","center"),
+#                na.action = na.omit, linout = F )
+
+
+
+nn_pred <- Predictor$new(nn_bank,
+                         data = train_sub[,-1],
+                         y = train_sub$INS,
+                         type = "class", class = train_sub$INS)
+
+# plot(FeatureImp$new(nn_pred, loss = "mse"))
+
+# ice_plot <- FeatureEffects$new(nn_pred,
+#                                method = "ice")
+# 
+# ice_plot$plot(c("s_AGE"))
+
+# pd_plot <- FeatureEffects$new(nn_pred,
+#                               method = "pdp")
+# pd_plot$plot(c("s_AGE"))
+
+### NB
+nb_pred <- Predictor$new(nb_bank,
+                         data = train_sub[,-1],
+                         y = train_sub$INS,
+                         type = "class")
+
+
+
+########### LIME and Shapely #############################################################################
+# LIME
+point <- 732
+lime.explain_nn <- LocalModel$new(nn_pred,
+                                  x.interest = train_sub[point,-1],
+                                  k = 5)
+plot(lime.explain_nn)
+
+lime.explain_nb <- LocalModel$new(nb_pred,
+                                  x.interest = train_sub[point,-1],
+                                  k = 5)
+plot(lime.explain_nb)
+
+# Shapely
+shap <- Shapley$new(nn_pred,
+                    x.interest = train_sub[point,-1])
+shap$plot()
