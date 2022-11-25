@@ -318,7 +318,7 @@ valid_p$p_hat <- predict(nn_bank, newdata=valid_p, type = "raw")[,1]
 #ROC curve
 pred.nn <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
 perf.nn <- performance(pred.nn, measure = "tpr", x.measure = "fpr")
-plot(perf.nb, lwd = 3, col = "dodgerblue3", main = paste0("Neural Net ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
+plot(perf.nn, lwd = 3, col = "dodgerblue3", main = paste0("Neural Net ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
      xlab = "False Positive",
      ylab = "True Positive")
 abline(a = 0, b = 1, lty = 3)
