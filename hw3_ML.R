@@ -115,21 +115,19 @@ table(train$INS, train$MMCRED)
 ##### NNET #####
 # standardizing continuous variables
 train2 <- train %>% mutate(across(where(is.numeric), scale))
+valid2 <- valid %>% mutate(across(where(is.numeric), scale))
 
 # build model
 train2$INS <- as.factor(train2$INS)
+valid2$INS <- as.factor(valid2$INS)
+
 set.seed(444)
 nn <- nnet(INS ~ ., data = train2, size = 5)
 
 # plot network
 plotnet(nn)
 
-# Optimize Number of Hidden Nodes and Regularization (decay option)
-# tune_grid <- expand.grid(
-#   .size = c(20, 21, 22, 23, 24),
-#   .decay = c(0, 0.5, 1)
-# )
-
+# tuning parameters
 tune_grid <- expand.grid(
   .size = c(3, 4, 5, 6, 7),
   .decay = c(0, 0.5, 1)
@@ -143,6 +141,7 @@ nn.caret <- train(INS~., data = train2,
 
 nn.caret$bestTune
 
+# final nnet
 set.seed(444)
 nn <- nnet(INS ~ ., data = train2,
             size = 3, decay = 1)
@@ -165,28 +164,28 @@ ggplot(melt(nn_weights), aes(x=Var1, y=Var2, size=abs(value),
 set.seed(444)
 train$INS <- as.factor(train$INS)
 nb <- naiveBayes(INS ~ ., data = train, 
-                 laplace = 0, usekernel = TRUE)
+                 laplace = 0.1, usekernel = TRUE)
 
-x <- train[, -1]
-y <- train$INS
 
 # Optimize laplace and kernel - CARET ONLY ABLE TO TUNE CLASSIFICATION PROBLEMS FOR NAIVE BAYES
-tune_grid <- expand.grid(
-  usekernel = c(TRUE, FALSE),
-  fL = c(0, 0.5, 1),
-  adjust=c(0,0.5,1.0))
-
-set.seed(444)
-nb.caret <- train(x, y, data = train,
-                       method = "nb", 
-                       tuneGrid = tune_grid,
-                       trControl = trainControl(method = 'cv', number = 10))
-nb.caret$bestTune
-
-nb <- naiveBayes(INS ~ ., data = train, 
-                 fL = 0.5, usekernel = FALSE, adjust = 0)
+# tune_grid <- expand.grid(
+#   usekernel = c(TRUE),
+#   fL = c(0, 0.5, 1),
+#   adjust=c(0,0.5,1.0))
+# 
+# set.seed(444)
+# nb.caret <- train(x, y, data = train,
+#                        method = "nb", 
+#                        tuneGrid = tune_grid,
+#                        trControl = trainControl(method = 'cv', number = 10))
+# nb.caret$bestTune
+# 
+# nb <- naiveBayes(INS ~ ., data = train, 
+#                  fL = 0.5, usekernel = TRUE, adjust = 0)
 
 ##### missing value imputation for VALIDATION DATA #####
+valid$INS <- as.factor(valid$INS)
+
 #convert all categorical var to factors
 col_names <- names(valid)[c(2,7:8,12,14,18,20,22,24,26:27,29:30,36,38)]
 valid[,col_names] <- lapply(valid[,col_names] , factor)
@@ -253,55 +252,55 @@ table(valid$INS, valid$MMCRED)
 
 #### ROC CURVE ON VALIDATION DATA ####
 # NNET
-train_p <- train2
-train_p$p_hat <- predict(nn, type = "prob")[,2]
+valid_p <- valid2
+valid_p$p_hat <- predict(nn, newdata=valid_p, type = "raw")[,1]
+p1nn <- valid_p$p_hat[valid_p$INS == 1]
+p0nn <- valid_p$p_hat[valid_p$INS == 0]
 
-p1 <- train_p$p_hat[train_p$INS == 1]
-p0 <- train_p$p_hat[train_p$INS == 0]
-
-pred.rf <- prediction(train_p$p_hat, factor(train_p$INS)) 
-perf.rf <- performance(pred.rf, measure = "tpr", x.measure = "fpr")
-plot(perf.rf, lwd = 3, col = "dodgerblue3", 
-     main = paste0("Neural Network ROC Plot (AUC = ", 
-                   round(AUROC(train_p$INS, train_p$p_hat), 3),")"), 
+#ROC curve
+pred.nn <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
+perf.nn <- performance(pred.nn, measure = "tpr", x.measure = "fpr")
+plot(perf.nn, lwd = 3, col = "dodgerblue3", main = paste0("Neural Net ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
      xlab = "False Positive",
      ylab = "True Positive")
 abline(a = 0, b = 1, lty = 3)
 
 # coefficient of discrimination
-coef_discrim <- mean(p1) - mean(p0)
-ggplot(train_p, aes(p_hat, fill = factor(INS))) +
+coef_discrim <- mean(p1nn) - mean(p1nn)
+ggplot(valid_p, aes(p_hat, fill = factor(INS))) +
   geom_density(alpha = 0.7) +
   labs(x = "Predicted Probability",
        y = "Density",
        fill = "Outcome",
-       title = "Discrimination Slope for Random Forest",
+       title = "Discrimination Slope for Naive Bayes",
        subtitle = paste("Coefficient of Discrimination = ",
                         round(coef_discrim, 3), sep = "")) +
   scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
   theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
 
-# NAIVE BAYES
-train_p2 <- train
-train_p2$y_pred <- predict(nb, x)
-p1xgb <- train_p2$y_pred[train_p2$INS == 1]
-p0xgb <- train_p2$y_pred[train_p2$INS == 0]
 
-pred.xgb <- prediction(y_pred, factor(train_p$INS)) 
-perf.xgb <- performance(pred.xgb, measure = "tpr", x.measure = "fpr")
-plot(perf.xgb, lwd = 3, col = "dodgerblue3", main = paste0("XGBoost ROC Plot (AUC = ", round(AUROC(train_p2$INS, y_pred), 3),")"), 
+# NAIVE BAYES
+val_p <- valid
+val_p$p_hat <- predict(nb, type = "raw", newdata = val_p)[,1]
+p1nb <- val_p$p_hat[val_p$INS == 1]
+p0nb <- val_p$p_hat[val_p$INS == 0]
+
+pred.nn <- prediction(val_p$p_hat, factor(val_p$INS)) 
+perf.nn <- performance(pred.nn, measure = "tpr", x.measure = "fpr")
+plot(perf.nn, lwd = 3, col = "dodgerblue3", main = paste0("Naive Bayes ROC Plot (AUC = ", round(AUROC(val_p$INS, val_p$p_hat), 3),")"), 
      xlab = "False Positive",
      ylab = "True Positive")
 abline(a = 0, b = 1, lty = 3)
 
+
 # coefficient of discrimination
-coef_discrim <- mean(p1xgb) - mean(p0xgb)
-ggplot(train_p2, aes(y_pred, fill = factor(INS))) +
+coef_discrim <- mean(p1nb) - mean(p1nb)
+ggplot(val_p, aes(p_hat, fill = factor(INS))) +
   geom_density(alpha = 0.7) +
   labs(x = "Predicted Probability",
        y = "Density",
        fill = "Outcome",
-       title = "Discrimination Slope for XGBoost",
+       title = "Discrimination Slope for Naive Bayes",
        subtitle = paste("Coefficient of Discrimination = ",
                         round(coef_discrim, 3), sep = "")) +
   scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
