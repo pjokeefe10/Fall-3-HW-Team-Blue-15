@@ -309,12 +309,21 @@ nn_bank <- nnet(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFA
                   DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
                   BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
                 + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
-, data = train_sub, size = 1, decay = .1, linout = F)
+, data = train_sub, size = 2, decay = .8, linout = F)
 
-# 0.7429, 2 , .8
 # determine ROC and accuracy on validation
+valid_p <- valid_sub
+valid_p$p_hat <- predict(nn_bank, newdata=valid_p, type = "raw")[,1]
 
-#create preditions
+#ROC curve
+pred.nn <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
+perf.nn <- performance(pred.nn, measure = "tpr", x.measure = "fpr")
+plot(perf.nb, lwd = 3, col = "dodgerblue3", main = paste0("Neural Net ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+#create predictions
 nn_pred <- predict(nn_bank, valid_sub, type="class")
 
 #confusion matrix
@@ -356,8 +365,18 @@ nb_bank <- naiveBayes(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + 
                       , data = train_sub, laplace = 0, usekernel = FALSE, adjust = FALSE)
 
 # determine ROC and accuracy on validation
+valid_p <- valid_sub
+valid_p$p_hat <- predict(nb_bank, newdata=valid_p, type = "raw")[,2]
 
-#create preditions
+#ROC curve
+pred.nb <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
+perf.nb <- performance(pred.nb, measure = "tpr", x.measure = "fpr")
+plot(perf.nb, lwd = 3, col = "dodgerblue3", main = paste0("Naive Bayes ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+#create predictions
 nb_pred <- predict(nb_bank, valid_sub, type="class")
 
 #confusion matrix
