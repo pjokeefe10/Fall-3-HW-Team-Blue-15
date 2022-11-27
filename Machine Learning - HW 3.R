@@ -21,6 +21,8 @@ library(NeuralNetTools)
 library(iml)
 library(e1071)
 library(caret)
+library(patchwork)
+library(glmnet)
 
 # read in data
 train <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main/insurance_t.csv")
@@ -84,10 +86,9 @@ train <- train %>%
 train$MMCRED <- as.character(train$MMCRED)
 train$MMCRED[which(train$MMCRED > 2)] <- "3+" # new category for 3+ money market credits
 
-###################################################### run the same thing, but on validation
+###################################################### validation impuation prep ################################################
 
 valid$INS <- factor(valid$INS)
-
 
 # coerce all binary and categorical to factor (16 cols)
 
@@ -156,10 +157,9 @@ train_df <- train_df %>%
          s_LORES = scale(LORES),
          s_HMVAL = scale(HMVAL),
          s_AGE = scale(AGE),
-         s_CRSCORE = scale(CRSCORE)
-         )
+         s_CRSCORE = scale(CRSCORE))
 
-### Even more preprocessing
+### subset to only the variables we will use
 
 train_sub <- subset(train_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DEPAMT , s_CHECKS , s_NSFAMT , s_PHONE 
                                          , s_TELLER , s_SAVBAL , s_ATMAMT , s_POS , s_POSAMT , s_CDBAL , s_IRABAL , s_INVBAL ,
@@ -168,7 +168,7 @@ train_sub <- subset(train_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DE
                                          BRANCH , FLAG_NA_ACCTAGE , FLAG_NA_PHONE , FLAG_NA_POS  , FLAG_NA_POSAMT , FLAG_NA_INVBAL   
                                          , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE, FLAG_NA_CRSCORE ))
 
-# need to convert all scaled vars into numeric
+# convert all scaled vars into numeric
 
 train_sub <- train_sub %>%
   mutate(s_ACCTAGE = as.numeric(s_ACCTAGE),
@@ -203,10 +203,9 @@ train_sub <- train_sub %>%
          FLAG_NA_LORES = as.factor(FLAG_NA_LORES),
          FLAG_NA_HMVAL = as.factor(FLAG_NA_HMVAL),
          FLAG_NA_AGE = as.factor(FLAG_NA_AGE),
-         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE)
-  )
+         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE))
 
-################################# Repeat on validation dataset
+################################# Repeat on validation dataset ##############################################
 # need a dataframe structure
 valid_df <- as.data.frame(valid)
 # also standardize continuous vars
@@ -232,8 +231,7 @@ valid_df <- valid_df %>%
          s_LORES = scale(LORES),
          s_HMVAL = scale(HMVAL),
          s_AGE = scale(AGE),
-         s_CRSCORE = scale(CRSCORE)
-  )
+         s_CRSCORE = scale(CRSCORE))
 
 
 valid_sub <- subset(valid_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DEPAMT , s_CHECKS , s_NSFAMT , s_PHONE 
@@ -241,7 +239,7 @@ valid_sub <- subset(valid_df, select = c(INS, s_ACCTAGE ,s_DDABAL , s_DEP , s_DE
                                          s_MMBAL , s_CCBAL , s_INCOME , s_LORES , s_HMVAL , s_AGE , s_CRSCORE ,
                                          DDA , DIRDEP , NSF , ATM , CD , IRA , INV , MM , CC , CCPURC , SDB , INAREA ,
                                          BRANCH , FLAG_NA_ACCTAGE , FLAG_NA_PHONE , FLAG_NA_POS  , FLAG_NA_POSAMT , FLAG_NA_INVBAL   
-                                         , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE, FLAG_NA_CRSCORE ))
+                                         , FLAG_NA_CCBAL , FLAG_NA_INCOME , FLAG_NA_LORES , FLAG_NA_HMVAL , FLAG_NA_AGE, FLAG_NA_CRSCORE))
 
 valid_sub <- valid_sub %>%
   mutate(s_ACCTAGE = as.numeric(s_ACCTAGE),
@@ -276,11 +274,10 @@ valid_sub <- valid_sub %>%
          FLAG_NA_LORES = as.factor(FLAG_NA_LORES),
          FLAG_NA_HMVAL = as.factor(FLAG_NA_HMVAL),
          FLAG_NA_AGE = as.factor(FLAG_NA_AGE),
-         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE)
-  )
+         FLAG_NA_CRSCORE = as.factor(FLAG_NA_CRSCORE))
 
 
-# optimize tuning
+# optimize parameter tuning
 # tune_grid <- expand.grid(
 #   .size = c(0:5),
 #   .decay = c(.7, .75, .8, .85, .9)
@@ -300,20 +297,27 @@ valid_sub <- valid_sub %>%
 #                       trace = FALSE, linout = F)
 # nn_bank_caret$bestTune
 
-# then use best tune
+# creating nn with nnet function
+# nn_bank <- nnet(INS ~ . , data = train_sub, size = 2, decay = .8, linout = F)
+
+
+# creating nn with caret (which works better with iml function)
+TrainingParameters <- trainControl(method = "repeatedcv", number = 10, repeats=10)
+tune_grid <- expand.grid(
+  .size = c(2),
+  .decay = c(.8))
 
 set.seed(444)
-nn_bank <- nnet(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
-                + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
-                  s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
-                  DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
-                  BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
-                + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
-, data = train_sub, size = 2, decay = .8, linout = F)
+nn_caret <- train(INS~., data = train_sub,
+                  method = "nnet",
+                  tuneGrid = tune_grid,
+                  na.action = na.omit, linout = F)
+
+nn_caret_pred <- predict(nn_caret, valid_sub, type="raw")
 
 # determine ROC and accuracy on validation
 valid_p <- valid_sub
-valid_p$p_hat <- predict(nn_bank, newdata=valid_p, type = "raw")[,1]
+valid_p$p_hat <- predict(nn_caret, newdata=valid_p, type = "prob")[,2]
 
 #ROC curve
 pred.nn <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
@@ -324,7 +328,7 @@ plot(perf.nn, lwd = 3, col = "dodgerblue3", main = paste0("Neural Net ROC Plot (
 abline(a = 0, b = 1, lty = 3)
 
 #create predictions
-nn_pred <- predict(nn_bank, valid_sub, type="class")
+nn_pred <- predict(nn_caret, valid_sub, type="raw")
 
 #confusion matrix
 nn_cMatrix <- table(nn_pred, valid_sub$INS)
@@ -353,20 +357,27 @@ confusionMatrix(nn_cMatrix)
 #                                                 number = 10))
 # 
 # nb_bank_caret_nb$bestTune
-# # now bulid nb
+
+# build using naiveBayes function
+#nb_bank <- naiveBayes(INS ~ . , data = train_sub, laplace = 0, usekernel = FALSE, adjust = FALSE)
+
+# build using caret
 
 set.seed(444)
-nb_bank <- naiveBayes(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + s_NSFAMT + s_PHONE 
-                      + s_TELLER + s_SAVBAL + s_ATMAMT + s_POS + s_POSAMT + s_CDBAL + s_IRABAL + s_INVBAL +
-                        s_MMBAL + s_CCBAL + s_INCOME + s_LORES + s_HMVAL + s_AGE + s_CRSCORE +
-                        DDA + DIRDEP + NSF + ATM + CD + IRA + INV + MM + CC + CCPURC + SDB + INAREA +
-                        BRANCH + FLAG_NA_ACCTAGE + FLAG_NA_PHONE + FLAG_NA_POS  + FLAG_NA_POSAMT + FLAG_NA_INVBAL   
-                      + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
-                      , data = train_sub, laplace = 0, usekernel = FALSE, adjust = FALSE)
+tune_grid <- expand.grid(
+  usekernel = c( FALSE),
+  fL = c(01), adjust = c( FALSE)
+)
+
+nb_caret <- train(INS~., data = train_sub,
+                  method = "nb",
+                  tuneGrid = tune_grid,
+                  na.action = na.omit, linout = F)
+
 
 # determine ROC and accuracy on validation
 valid_p <- valid_sub
-valid_p$p_hat <- predict(nb_bank, newdata=valid_p, type = "raw")[,2]
+valid_p$p_hat <- predict(nb_caret, newdata=valid_p, type = "prob")[,2]
 
 #ROC curve
 pred.nb <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
@@ -377,7 +388,7 @@ plot(perf.nb, lwd = 3, col = "dodgerblue3", main = paste0("Naive Bayes ROC Plot 
 abline(a = 0, b = 1, lty = 3)
 
 #create predictions
-nb_pred <- predict(nb_bank, valid_sub, type="class")
+nb_pred <- predict(nb_caret, valid_sub, type="raw")
 
 #confusion matrix
 nb_cMatrix <- table(nb_pred, valid_sub$INS)
@@ -386,54 +397,64 @@ confusionMatrix(nb_cMatrix)
 
 ############ variable importance ###########################################################################
 
-### NN
-# TrainingParameters <- trainControl(method = "repeatedcv", number = 10, repeats=10)
-# model <- train(INS~., data = train_sub,
-#                method = "nnet",
-#                trControl= TrainingParameters,
-#                preProcess=c("scale","center"),
-#                na.action = na.omit, linout = F )
+## hinton diagram (more of variable selection though)
+# nn_weights <- matrix(data = nn_bank$wts[1:126], ncol = 6, nrow = 22)
+# rownames(nn_weights) <- c("bias", nn_bank$coefnames)
+# colnames(nn_weights) <- c("h1", "h2", "h3", "h4", "h5", "h6")
+# ggplot(melt(nn_weights), aes(x=Var1, y=Var2, size=abs(value), color=as.factor(sign(value)))) +
+#   geom_point(shape = 15) +
+#   scale_size_area(max_size = 40) +
+#   labs(x = "", y = "", title = "Hinton Diagram of NN Weights") +
+#   theme_bw()
+
+################ feature importance using cross-entropy loss ###############################################
 
 
+# nn feature importance
 
-nn_pred <- Predictor$new(nn_bank,
-                         data = train_sub[,-1],
-                         y = train_sub$INS,
-                         type = "class", class = train_sub$INS)
+X_nn <- train_sub[which(names(train_sub) != "INS")]
+predictor_nn <- Predictor$new(nn_caret, data = X_nn, y = train_sub$INS, type = "prob")
+imp_nn <- FeatureImp$new(predictor_nn, loss = "ce")
+plot(imp_nn, main = "Neural Net Feature Importance")
 
-# plot(FeatureImp$new(nn_pred, loss = "mse"))
+# nb feature importance (warnings indicate that observations are "outliers" and giving unusual probabilities)
+
+# X_nb <- train_sub[which(names(train_sub) != "INS")]
+# predictor_nb <- Predictor$new(nb_caret, data = X_nb, y = train_sub$INS, type = "prob")
+# imp_nb <- FeatureImp$new(predictor_nb, loss = "ce")
+# plot(imp_nb, main = "Naive Bayes Feature Importance")
+
+
+# other feature importance plots (mild warning: run, but have taken too long to see output)
 
 # ice_plot <- FeatureEffects$new(nn_pred,
 #                                method = "ice")
 # 
 # ice_plot$plot(c("s_AGE"))
 
-# pd_plot <- FeatureEffects$new(nn_pred,
+
+
+
+############## global relationship of age (PDP and ALE) proceed with NN
+
+# pd_plot <- FeatureEffects$new(predictor_nn,
 #                               method = "pdp")
 # pd_plot$plot(c("s_AGE"))
 
-### NB
-nb_pred <- Predictor$new(nb_bank,
-                         data = train_sub[,-1],
-                         y = train_sub$INS,
-                         type = "class")
+ale_plot <- FeatureEffects$new(predictor_nn, method = "ale")
+ale_plot$plot(c("s_AGE"))
 
 
-
-########### LIME and Shapely #############################################################################
+########### Observation Interest (LIME and Shapely) #############################################################################
 # LIME
 point <- 732
-lime.explain_nn <- LocalModel$new(nn_pred,
+lime.explain_nn <- LocalModel$new(predictor_nn,
                                x.interest = train_sub[point,-1],
                                k = 5)
 plot(lime.explain_nn)
 
-lime.explain_nb <- LocalModel$new(nb_pred,
-                               x.interest = train_sub[point,-1],
-                               k = 5)
-plot(lime.explain_nb)
 
 # Shapely
-shap <- Shapley$new(nn_pred,
-                    x.interest = train_sub[point,-1])
-shap$plot()
+# shap <- Shapley$new(predictor_nn,
+#                     x.interest = train_sub[point,-1])
+# shap$plot()
