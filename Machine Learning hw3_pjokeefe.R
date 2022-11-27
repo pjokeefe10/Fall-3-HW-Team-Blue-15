@@ -415,9 +415,70 @@ nb_bank <- naiveBayes(INS ~ s_ACCTAGE +s_DDABAL + s_DEP + s_DEPAMT + s_CHECKS + 
                       + FLAG_NA_CCBAL + FLAG_NA_INCOME + FLAG_NA_LORES + FLAG_NA_HMVAL + FLAG_NA_AGE + FLAG_NA_CRSCORE 
                       , data = train_sub, laplace = 0, usekernel = FALSE, adjust = FALSE)
 
+# Training accuracy metrics
+train_p.nb <- train_sub
+
+train_p.nb$p_hat <- predict(nb_bank,newdata = train_sub, type = 'raw')[,2]
+
+p1 <- train_p.nb$p_hat[train_p.nb$INS == 1]
+p0 <- train_p.nb$p_hat[train_p.nb$INS == 0]
+
+
+coef_discrim <- mean(p1) - mean(p0)
+
+ggplot(train_p.nb, aes(p_hat, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for Naive Bayes",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
+
+#ROC curve
+pred.rf.bank <- prediction(train_p.nb$p_hat, factor(train_p.nb$INS)) 
+perf.rf.bank <- performance(pred.rf.bank, measure = "tpr", x.measure = "fpr")
+plot(perf.rf.bank, lwd = 3, col = "dodgerblue3", main = paste0("Naive Bayes ROC Plot (AUC = ", round(AUROC(train_p.nb$INS, train_p.nb$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+# determine ROC and accuracy on validation
+valid_p <- valid_sub
+
+valid_p$p_hat <- predict(nb_bank, newdata = valid_p, type = "raw", )[,2]
+
+p1 <- valid_p$p_hat[valid_p$INS == 1]
+p0 <- valid_p$p_hat[valid_p$INS == 0]
+
+
+coef_discrim <- mean(p1) - mean(p0)
+
+ggplot(valid_p, aes(p_hat, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for Naive Bayes",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
+
+#ROC curve
+pred.rf.bank <- prediction(valid_p$p_hat, factor(valid_p$INS)) 
+perf.rf.bank <- performance(pred.rf.bank, measure = "tpr", x.measure = "fpr")
+plot(perf.rf.bank, lwd = 3, col = "dodgerblue3", main = paste0("Naive Bayes ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
+     xlab = "False Positive",
+     ylab = "True Positive")
+abline(a = 0, b = 1, lty = 3)
+
+
 # determine ROC and accuracy on validation
 
-#create preditions
+#create predictions
 nb_pred <- predict(nb_bank, valid_sub, type="class")
 
 #confusion matrix
