@@ -305,8 +305,41 @@ plot(perf.rf, lwd = 3, col = "dodgerblue3", main = paste0("Random Forest ROC Plo
 abline(a = 0, b = 1, lty = 3)
 
 ######################## INTERPRETATIONS USING RF #######################
+# ICE
+str(train)
+# need to convert booleans to factors
+# train <- data.frame(sapply(train, \(x) +as.logical(x)))
+
+train$FLAG_NA_ACCTAGE <- as.factor(as.numeric(train$FLAG_NA_ACCTAGE))
+train$FLAG_NA_PHONE   <- as.factor(as.numeric(train$FLAG_NA_PHONE  ))
+train$FLAG_NA_POS     <- as.factor(as.numeric(train$FLAG_NA_POS    ))
+train$FLAG_NA_POSAMT  <- as.factor(as.numeric(train$FLAG_NA_POSAMT ))
+train$FLAG_NA_INVBAL  <- as.factor(as.numeric(train$FLAG_NA_INVBAL ))
+train$FLAG_NA_CCBAL   <- as.factor(as.numeric(train$FLAG_NA_CCBAL  ))
+train$FLAG_NA_INCOME  <- as.factor(as.numeric(train$FLAG_NA_INCOME ))
+train$FLAG_NA_LORES   <- as.factor(as.numeric(train$FLAG_NA_LORES  ))
+train$FLAG_NA_HMVAL   <- as.factor(as.numeric(train$FLAG_NA_HMVAL  ))
+train$FLAG_NA_AGE     <- as.factor(as.numeric(train$FLAG_NA_AGE))
+train$FLAG_NA_CRSCORE <- as.factor(as.numeric(train$FLAG_NA_CRSCORE))
+
+valid$FLAG_NA_ACCTAGE <- as.factor(as.numeric(valid$FLAG_NA_ACCTAGE))
+valid$FLAG_NA_PHONE   <- as.factor(as.numeric(valid$FLAG_NA_PHONE  ))
+valid$FLAG_NA_POS     <- as.factor(as.numeric(valid$FLAG_NA_POS    ))
+valid$FLAG_NA_POSAMT  <- as.factor(as.numeric(valid$FLAG_NA_POSAMT ))
+valid$FLAG_NA_INVBAL  <- as.factor(as.numeric(valid$FLAG_NA_INVBAL ))
+valid$FLAG_NA_CCBAL   <- as.factor(as.numeric(valid$FLAG_NA_CCBAL  ))
+valid$FLAG_NA_INCOME  <- as.factor(as.numeric(valid$FLAG_NA_INCOME ))
+valid$FLAG_NA_LORES   <- as.factor(as.numeric(valid$FLAG_NA_LORES  ))
+valid$FLAG_NA_HMVAL   <- as.factor(as.numeric(valid$FLAG_NA_HMVAL  ))
+valid$FLAG_NA_AGE     <- as.factor(as.numeric(valid$FLAG_NA_AGE))
+valid$FLAG_NA_CRSCORE <- as.factor(as.numeric(valid$FLAG_NA_CRSCORE))
+
+set.seed(444)
+forest_pred <- Predictor$new(rf, data = valid[,-37], 
+                             y = as.numeric(valid$INS), type = "prob")
+
 # PDP
-pd_plot <- FeatureEffects$new(pred.rf, method = "pdp")
+pd_plot <- FeatureEffects$new(forest_pred, method = "pdp")
 pd_plot$plot(c("age"))
 pd_plot$plot()
 
