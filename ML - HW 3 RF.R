@@ -32,8 +32,6 @@ valid <- read.csv("https://github.com/pjokeefe10/Fall-3-HW-Team-Blue-15/raw/main
 
 ########################################## imputation from phase 1 ###############################################################
 
-########################################## imputation from phase 1 ###############################################################
-
 train$INS <- factor(train$INS)
 
 
@@ -316,12 +314,13 @@ valid$MMCRED[which(valid$MMCRED > 2)] <- '3+' # new category for 3+ money market
 # rf <- randomForest(INS ~ .,
 #                    data = train, ntree = 200, mtry = 8, importance = TRUE)
 #10 folds 
+
+# remove variables from train and validation
+
 control <- trainControl(method='cv',
                         number=10, classProbs= TRUE)
 
 set.seed(444)
-
-
 tunegrid <- expand.grid(.mtry=8)
 rf <- train(make.names(INS)~.,
                     data=train,
@@ -375,7 +374,7 @@ shap$plot()
 
 ###### Global interpretation
 # ale_plot <- FeatureEffects$new(predictor_rf, method = "ale")
-# ale_plot$plot(c("Age"))
+# ale_plot$plot(c("AGE"))
 
 pdp_plot <- FeatureEffects$new(predictor_rf, method = "pdp")
 pdp_plot$plot(c("AGE"))
