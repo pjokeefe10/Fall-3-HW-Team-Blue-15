@@ -309,26 +309,26 @@ valid$MMCRED <- as.character(valid$MMCRED)
 valid$MMCRED[which(valid$MMCRED > 2)] <- '3+' # new category for 3+ money market credits
 
 ############ Random Forest #####################################################################################################
-set.seed(444)
+#set.seed(444)
 # rf <- randomForest(INS ~ . - LORES - FLAG_NA_CRSCORE - FLAG_NA_INCOME
 #                    - FLAG_NA_ACCTAGE - SDB - NSFAMT - INAREA,
 #                    data = train, ntree = 200, mtry = 8, importance = TRUE)
-rf <- randomForest(INS ~ .,
-                   data = train, ntree = 200, mtry = 8, importance = TRUE)
+# rf <- randomForest(INS ~ .,
+#                    data = train, ntree = 200, mtry = 8, importance = TRUE)
 #10 folds 
-# control <- trainControl(method='cv',
-#                         number=10, classProbs= TRUE)
-# 
-# set.seed(444)
-# 
-# 
-# tunegrid <- expand.grid(.mtry=8)
-# rf <- train(make.names(INS)~.,
-#                     data=train,
-#                     method='rf',
-#                     eval_metric='ROC',
-#                     tuneGrid=tunegrid,
-#                     trControl=control, ntree = 200)
+control <- trainControl(method='cv',
+                        number=10, classProbs= TRUE)
+
+set.seed(444)
+
+
+tunegrid <- expand.grid(.mtry=8)
+rf <- train(make.names(INS)~.,
+                    data=train,
+                    method='rf',
+                    eval_metric='ROC',
+                    tuneGrid=tunegrid,
+                    trControl=control, ntree = 200)
 
 
 # determine ROC and accuracy on validation
@@ -344,20 +344,20 @@ plot(perf.rf, lwd = 3, col = "dodgerblue3", main = paste0("Random Forest ROC Plo
 abline(a = 0, b = 1, lty = 3)
 
 #create predictions
-rf_pred <- predict(rf, valid, type="prob")[,2]
+rf_pred <- predict(rf, valid, type="raw")
 
 #confusion matrix
-rf_cMatrix <- table(rf_pred, valid$INS)
+rf_cMatrix <- table(rf_pred, make.names(valid$INS))
 
 confusionMatrix(rf_cMatrix)
 
 ################ Variable Interest ##############################################################################################
+#X_rf <- train[which(names(train) != "INS")]
+#predictor_rf <- Predictor$new(rf, data = X_rf, y = train$INS, type = "prob")
+
 predictor_rf <- Predictor$new(rf, data = train[,-37], y = train$INS, type = "prob")
 
 #train$INS <- make.names(train$INS)
-ale_plot <- FeatureEffects$new(predictor_rf, method = "ale")
-ale_plot$plot(c("Age"))
-
 ########### Observation Interest (LIME and Shapely) #############################################################################
 
 # LIME
@@ -372,3 +372,12 @@ plot(lime.explain_rf)
 shap <- Shapley$new(predictor_rf,
                     x.interest = train[point,-37])
 shap$plot()
+
+###### Global interpretation
+# ale_plot <- FeatureEffects$new(predictor_rf, method = "ale")
+# ale_plot$plot(c("Age"))
+
+pdp_plot <- FeatureEffects$new(predictor_rf, method = "pdp")
+pdp_plot$plot(c("AGE"))
+
+
