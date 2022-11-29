@@ -337,12 +337,29 @@ valid_p <- valid
 valid_p$p_hat <- predict(rf, newdata=valid_p, type = "prob")[,2]
 
 #ROC curve
+p1 <- valid_p$p_hat[valid_p$INS == 1]
+p0 <- valid_p$p_hat[valid_p$INS == 0]
+
 pred.rf <- prediction(valid_p$p_hat, valid_p$INS) 
 perf.rf <- performance(pred.rf, measure = "tpr", x.measure = "fpr")
 plot(perf.rf, lwd = 3, col = "dodgerblue3", main = paste0("Random Forest ROC Plot (AUC = ", round(AUROC(valid_p$INS, valid_p$p_hat), 3),")"), 
      xlab = "False Positive",
      ylab = "True Positive")
 abline(a = 0, b = 1, lty = 3)
+
+# coefficient of discrimination
+coef_discrim <- mean(p1) - mean(p0)
+ggplot(train_p, aes(p_hat, fill = factor(INS))) +
+  geom_density(alpha = 0.7) +
+  labs(x = "Predicted Probability",
+       y = "Density",
+       fill = "Outcome",
+       title = "Discrimination Slope for Random Forest",
+       subtitle = paste("Coefficient of Discrimination = ",
+                        round(coef_discrim, 3), sep = "")) +
+  scale_fill_manual(values = c("#1C86EE", "#FFB52E"),name = "Customer Decision", labels = c("Not Bought", "Bought")) +
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5) )
+
 
 #create predictions
 rf_pred <- predict(rf, valid, type="response")
@@ -376,3 +393,7 @@ shap$plot()
 
 pdp_plot <- FeatureEffects$new(predictor_rf, method = "pdp")
 pdp_plot$plot(c("ACCTAGE"))
+
+
+
+
