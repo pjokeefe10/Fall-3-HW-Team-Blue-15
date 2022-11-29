@@ -315,6 +315,7 @@ set.seed(444)
 #                    data = train, ntree = 200, mtry = 8, importance = TRUE)
 rf <- randomForest(INS ~ .,
                    data = train, ntree = 200, mtry = 8, importance = TRUE)
+importance(rf)
 #10 folds 
 # control <- trainControl(method='cv',
 #                         number=10, classProbs= TRUE)
