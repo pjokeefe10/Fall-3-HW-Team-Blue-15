@@ -310,10 +310,11 @@ valid$MMCRED[which(valid$MMCRED > 2)] <- '3+' # new category for 3+ money market
 
 ############ Random Forest #####################################################################################################
 set.seed(444)
-rf <- randomForest(INS ~ . - LORES - FLAG_NA_CRSCORE - FLAG_NA_INCOME
-                   - FLAG_NA_ACCTAGE - SDB - NSFAMT - INAREA,
+# rf <- randomForest(INS ~ . - LORES - FLAG_NA_CRSCORE - FLAG_NA_INCOME
+#                    - FLAG_NA_ACCTAGE - SDB - NSFAMT - INAREA,
+#                    data = train, ntree = 200, mtry = 8, importance = TRUE)
+rf <- randomForest(INS ~ .,
                    data = train, ntree = 200, mtry = 8, importance = TRUE)
-
 #10 folds 
 # control <- trainControl(method='cv',
 #                         number=10, classProbs= TRUE)
@@ -362,12 +363,12 @@ ale_plot$plot(c("Age"))
 # LIME
 point <- 732
 lime.explain_rf <- LocalModel$new(predictor_rf,
-                                  x.interest = train[point,],
+                                  x.interest = train[point,-37],
                                   k = 5)
 plot(lime.explain_rf)
 
 
 # Shapely 
 shap <- Shapley$new(predictor_rf,
-                    x.interest = train[point,])
+                    x.interest = train[point,-37])
 shap$plot()
